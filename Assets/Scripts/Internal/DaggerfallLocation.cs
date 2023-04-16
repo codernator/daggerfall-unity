@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -248,7 +248,7 @@ namespace DaggerfallWorkshop
             int natureArchive = GetNatureArchive();
 
             // Process all DaggerfallBillboard child components
-            DaggerfallBillboard[] billboardArray = GetComponentsInChildren<DaggerfallBillboard>();
+            Billboard[] billboardArray = GetComponentsInChildren<Billboard>();
             foreach (var db in billboardArray)
             {
                 if (db.Summary.FlatType == FlatTypes.Nature)
@@ -277,7 +277,7 @@ namespace DaggerfallWorkshop
         public void EnumerateStartMarkers()
         {
             // Process all DaggerfallBillboard child components
-            DaggerfallBillboard[] billboardArray = GetComponentsInChildren<DaggerfallBillboard>();
+            Billboard[] billboardArray = GetComponentsInChildren<Billboard>();
             startMarkers.Clear();
             foreach (var db in billboardArray)
             {
@@ -428,6 +428,8 @@ namespace DaggerfallWorkshop
                         blockName,
                         x,
                         y,
+                        location.MapTableData.MapId,
+                        location.LocationIndex,
                         dfUnity.Option_RMBGroundPlane,
                         dfUnity.Option_CityBlockPrefab,
                         summary.NatureBillboardBatch,

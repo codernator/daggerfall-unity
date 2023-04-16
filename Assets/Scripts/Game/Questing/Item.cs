@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -48,6 +48,7 @@ namespace DaggerfallWorkshop.Game.Questing
         bool actionWatching = false;
         bool allowDrop = false;
         bool playerDropped = false;
+        bool madePermanent = false;
         DaggerfallUnityItem item = null;
 
         #endregion
@@ -101,6 +102,14 @@ namespace DaggerfallWorkshop.Game.Questing
         {
             get { return playerDropped; }
             set { playerDropped = value; }
+        }
+
+        /// <summary>
+        /// Gets flag stating if this virtual quest item was previously made permanent.
+        /// </summary>
+        public bool MadePermanent
+        {
+            get { return madePermanent; }
         }
 
         #endregion
@@ -252,6 +261,24 @@ namespace DaggerfallWorkshop.Game.Questing
 
         #endregion
 
+        #region Public Methods
+
+        /// <summary>
+        /// Makes both virtual and current instance of item permanent.
+        /// If DaggerfallUnityItem is subsequently reinstantiated then new DaggerfallUnityItem must also be made permanent.
+        /// </summary>
+        public void MakePermanent()
+        {
+            // Flag this virtual Item as permanent
+            madePermanent = true;
+
+            // Set current DaggerfallUnityItem instance as permanent
+            if (DaggerfallUnityItem != null)
+                DaggerfallUnityItem.MakePermanent();
+        }
+
+        #endregion
+
         #region Private Methods
 
         // Custom long name getter that prevents plant suffix being displayed in quest text
@@ -315,6 +342,10 @@ namespace DaggerfallWorkshop.Game.Questing
                 // Create item
                 result = new DaggerfallUnityItem((ItemGroups)itemClass, itemSubClass);
             }
+            
+            // Randomise clothing dye
+            if (result.IsClothing)
+                result.dyeColor = ItemBuilder.RandomClothingDye();
 
             // Link item to quest
             result.LinkQuestItem(ParentQuest.UID, Symbol.Clone());
@@ -394,6 +425,7 @@ namespace DaggerfallWorkshop.Game.Questing
             public bool actionWatching;
             public bool allowDrop;
             public bool playerDropped;
+            public bool madePermanent;
             public ItemData_v1 item;
         }
 
@@ -406,6 +438,7 @@ namespace DaggerfallWorkshop.Game.Questing
             data.actionWatching = actionWatching;
             data.allowDrop = allowDrop;
             data.playerDropped = playerDropped;
+            data.madePermanent = madePermanent;
             data.item = item.GetSaveData();
 
             return data;
@@ -422,6 +455,7 @@ namespace DaggerfallWorkshop.Game.Questing
             actionWatching = data.actionWatching;
             allowDrop = data.allowDrop;
             playerDropped = data.playerDropped;
+            madePermanent = data.madePermanent;
             item = new DaggerfallUnityItem(data.item);
         }
 

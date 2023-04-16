@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -473,8 +473,8 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                 daggerY = Math.Min(maxDaggerY, (int)(defaultDaggerY + (41 * (-difficultyPoints / 12f))));
             }
 
-            DaggerfallUI.Instance.StartCoroutine(AnimateDagger());
             daggerPanel.Position = new Vector2(defaultDaggerX, daggerY);
+            DaggerfallUI.Instance.StartCoroutine(AnimateDagger());
         }
 
         IEnumerator AnimateDagger()

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -39,6 +39,45 @@ namespace DaggerfallWorkshop.Utility
                     enemyDict = EnemyBasics.BuildEnemyDict();
                 return enemyDict;
             }
+        }
+
+        // Animal sounds range. Matched to classic.
+        const float animalSoundMaxDistance = 768 * MeshReader.GlobalScale;
+
+        public static void AddAnimalAudioSource(GameObject go, int record)
+        {
+            DaggerfallAudioSource source = go.AddComponent<DaggerfallAudioSource>();
+            source.AudioSource.maxDistance = animalSoundMaxDistance;
+
+            SoundClips sound;
+            switch (record)
+            {
+                case 0:
+                case 1:
+                    sound = SoundClips.AnimalHorse;
+                    break;
+                case 3:
+                case 4:
+                    sound = SoundClips.AnimalCow;
+                    break;
+                case 5:
+                case 6:
+                    sound = SoundClips.AnimalPig;
+                    break;
+                case 7:
+                case 8:
+                    sound = SoundClips.AnimalCat;
+                    break;
+                case 9:
+                case 10:
+                    sound = SoundClips.AnimalDog;
+                    break;
+                default:
+                    sound = SoundClips.None;
+                    break;
+            }
+
+            source.SetSound(sound, AudioPresets.PlayRandomlyIfPlayerNear);
         }
 
         public static void AssignAnimatedMaterialComponent(CachedMaterial[] cachedMaterials, GameObject go)
@@ -277,7 +316,7 @@ namespace DaggerfallWorkshop.Utility
             GameObject go = new GameObject(flatName);
             if (parent) go.transform.parent = parent;
 
-            DaggerfallBillboard dfBillboard = go.AddComponent<DaggerfallBillboard>();
+            Billboard dfBillboard = go.AddComponent<DaggerfallBillboard>();
             dfBillboard.SetMaterial(archive, record);
 
             if (PlayerActivate.HasCustomActivation(flatName)) 
@@ -416,6 +455,8 @@ namespace DaggerfallWorkshop.Utility
             string blockName,
             int layoutX,
             int layoutY,
+            int mapId,
+            int locationIndex,
             bool addGroundPlane = true,
             DaggerfallRMBBlock cloneFrom = null,
             DaggerfallBillboardBatch natureBillboardBatch = null,
@@ -436,6 +477,8 @@ namespace DaggerfallWorkshop.Utility
                 blockData,
                 layoutX,
                 layoutY,
+                mapId,
+                locationIndex,
                 addGroundPlane,
                 cloneFrom,
                 natureBillboardBatch,
@@ -456,6 +499,8 @@ namespace DaggerfallWorkshop.Utility
             DFBlock blockData,
             int layoutX,
             int layoutY,
+            int mapId,
+            int locationIndex,
             bool addGroundPlane = true,
             DaggerfallRMBBlock cloneFrom = null,
             DaggerfallBillboardBatch natureBillboardBatch = null,
@@ -514,7 +559,10 @@ namespace DaggerfallWorkshop.Utility
             RMBLayout.AddNatureFlats(ref blockData, flatsNode.transform, natureBillboardBatch, climateNature, climateSeason);
 
             // Layout all other flats
-            RMBLayout.AddMiscBlockFlats(ref blockData, flatsNode.transform, animalsBillboardBatch, miscBillboardAtlas, miscBillboardBatch);
+            RMBLayout.AddMiscBlockFlats(ref blockData, flatsNode.transform, mapId, locationIndex, animalsBillboardBatch, miscBillboardAtlas, miscBillboardBatch);
+
+            // Layout any subrecord exterior flats
+            RMBLayout.AddExteriorBlockFlats(ref blockData, flatsNode.transform, lightsNode.transform, mapId, locationIndex, climateNature, climateSeason);
 
             // Add ground plane
             if (addGroundPlane)
@@ -625,13 +673,13 @@ namespace DaggerfallWorkshop.Utility
             if (MeshReplacement.ImportCustomFlatGameobject(textureArchive, textureRecord, Vector3.zero, go.transform))
             {
                 // Use imported model instead of billboard
-                GameObject.Destroy(go.GetComponent<DaggerfallBillboard>());
+                GameObject.Destroy(go.GetComponent<Billboard>());
                 GameObject.Destroy(go.GetComponent<MeshRenderer>());
             }
             else
             {
                 // Setup billboard component
-                DaggerfallBillboard dfBillboard = go.GetComponent<DaggerfallBillboard>();
+                Billboard dfBillboard = go.GetComponent<Billboard>();
                 dfBillboard.SetMaterial(textureArchive, textureRecord);
 
                 // Now move up loot icon by half own size so bottom is aligned with position
@@ -977,9 +1025,12 @@ namespace DaggerfallWorkshop.Utility
             // Set position and adjust up by half height if not inside a dungeon
             Vector3 dungeonBlockPosition = new Vector3(marker.dungeonX * RDBLayout.RDBSide, 0, marker.dungeonZ * RDBLayout.RDBSide);
             go.transform.localPosition = dungeonBlockPosition + marker.flatPosition;
-            DaggerfallBillboard dfBillboard = go.GetComponent<DaggerfallBillboard>();
+            Billboard dfBillboard = go.GetComponent<Billboard>();
             if (siteType != SiteTypes.Dungeon)
                 go.transform.localPosition += new Vector3(0, dfBillboard.Summary.Size.y / 2, 0);
+
+            // Align injected NPC with ground
+            GameObjectHelper.AlignBillboardToGround(dfBillboard.gameObject, dfBillboard.Summary.Size, 4);
 
             // Add people data to billboard
             dfBillboard.SetRMBPeopleData(person.FactionIndex, person.FactionData.flags);
@@ -1055,7 +1106,7 @@ namespace DaggerfallWorkshop.Utility
 
             // Create billboard
             GameObject go = CreateDaggerfallBillboardGameObject(textureArchive, textureRecord, parent);
-            DaggerfallBillboard dfBillboard = go.GetComponent<DaggerfallBillboard>();
+            Billboard dfBillboard = go.GetComponent<Billboard>();
 
             // Set name
             go.name = string.Format("Quest Item [{0} | {1}]", item.Symbol.Original, item.DaggerfallUnityItem.LongName);

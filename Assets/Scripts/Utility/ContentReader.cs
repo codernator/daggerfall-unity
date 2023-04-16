@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -38,7 +38,8 @@ namespace DaggerfallWorkshop.Utility
 
         public struct MapSummary
         {
-            public int ID;
+            public int ID;                  // mapTable.MapId & 0x000fffff for dict key and matching with ExteriorData.MapId
+            public int MapID;               // Full mapTable.MapId for matching with localization key
             public int RegionIndex;
             public int MapIndex;
             public DFRegion.LocationTypes LocationType;
@@ -189,6 +190,8 @@ namespace DaggerfallWorkshop.Utility
             if (!isReady)
                 return false;
 
+            MapDictCheck();
+
             // Get mapId from locationId
             int mapId = LocationIdToMapId(locationId);
             if (mapDict.ContainsKey(mapId))
@@ -213,6 +216,7 @@ namespace DaggerfallWorkshop.Utility
                 summaryOut = new MapSummary();
                 return false;
             }
+            MapDictCheck();
 
             int id = MapsFile.GetMapPixelID(mapPixelX, mapPixelY);
             if (mapDict.ContainsKey(id))
@@ -237,6 +241,7 @@ namespace DaggerfallWorkshop.Utility
             {
                 return false;
             }
+            MapDictCheck();
 
             int id = MapsFile.GetMapPixelID(mapPixelX, mapPixelY);
             if (mapDict.ContainsKey(id))
@@ -296,12 +301,15 @@ namespace DaggerfallWorkshop.Utility
             if (paintFileReader == null)
                 paintFileReader = new PaintFile(Path.Combine(arena2Path, PaintFile.Filename), FileUsage.UseMemory, true);
 
+            // Raise ready flag
+            isReady = true;
+        }
+
+        private void MapDictCheck()
+        {
             // Build map lookup dictionary
             if (mapDict == null && mapFileReader != null)
                 EnumerateMaps();
-
-            // Raise ready flag
-            isReady = true;
         }
 
         /// <summary>
@@ -325,6 +333,7 @@ namespace DaggerfallWorkshop.Utility
                         // Get map summary
                         DFRegion.RegionMapTable mapTable = dfRegion.MapTable[location];
                         summary.ID = mapTable.MapId & 0x000fffff;
+                        summary.MapID = mapTable.MapId;
                         summary.RegionIndex = region;
                         summary.MapIndex = location;
                         summary.LocationType = mapTable.LocationType;

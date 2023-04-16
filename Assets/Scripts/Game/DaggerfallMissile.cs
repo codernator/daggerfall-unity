@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -68,7 +68,7 @@ namespace DaggerfallWorkshop.Game
         SphereCollider myCollider;
         DaggerfallAudioSource audioSource;
         Rigidbody myRigidbody;
-        DaggerfallBillboard myBillboard;
+        Billboard myBillboard;
         bool forceDisableSpellLighting;
         bool noSpellsSpatialBlend = false;
         float lifespan = 0f;
@@ -216,8 +216,10 @@ namespace DaggerfallWorkshop.Game
             {
                 // Create and orient 3d arrow
                 goModel = GameObjectHelper.CreateDaggerfallMeshGameObject(99800, transform);
-                MeshCollider arrowCollider = GetComponent<MeshCollider>();
+                MeshCollider arrowCollider = goModel.GetComponent<MeshCollider>();
                 arrowCollider.sharedMesh = goModel.GetComponent<MeshFilter>().sharedMesh;
+                arrowCollider.convex = true;
+                arrowCollider.isTrigger = true;
 
                 // Offset up so it comes from same place LOS check is done from
                 Vector3 adjust;
@@ -229,10 +231,10 @@ namespace DaggerfallWorkshop.Game
                 }
                 else
                 {
-                    // Offset forward to avoid collision with player
-                    adjust = GameManager.Instance.MainCamera.transform.forward * 0.6f;
                     // Adjust slightly downward to match bow animation
-                    adjust.y -= 0.11f;
+                    adjust = (GameManager.Instance.MainCamera.transform.rotation * -Caster.transform.up) * 0.11f;
+                    // Offset forward to avoid collision with player
+                    adjust += GameManager.Instance.MainCamera.transform.forward * 0.6f;
                     // Adjust to the right or left to match bow animation
                     if (!GameManager.Instance.WeaponManager.ScreenWeapon.FlipHorizontal)
                         adjust += GameManager.Instance.MainCamera.transform.right * 0.15f;
@@ -506,6 +508,10 @@ namespace DaggerfallWorkshop.Game
                     aimDirection = caster.transform.forward;
                 else
                     aimDirection = (predictedPosition - caster.transform.position).normalized;
+
+                // Enemy archers must aim lower to compensate for crouched player capsule
+                if (IsArrow && enemySenses.Target?.EntityType == EntityTypes.Player && GameManager.Instance.PlayerMotor.IsCrouching)
+                    aimDirection += Vector3.down * 0.05f;
             }
 
             return aimDirection;
@@ -524,7 +530,7 @@ namespace DaggerfallWorkshop.Game
             GameObject go = GameObjectHelper.CreateDaggerfallBillboardGameObject(GetMissileTextureArchive(), record, transform);
             go.transform.localPosition = Vector3.zero;
             go.layer = gameObject.layer;
-            myBillboard = go.GetComponent<DaggerfallBillboard>();
+            myBillboard = go.GetComponent<Billboard>();
             myBillboard.FramesPerSecond = BillboardFramesPerSecond;
             myBillboard.FaceY = true;
             myBillboard.OneShot = oneShot;

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -21,6 +21,7 @@ using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Items;
 using DaggerfallWorkshop.Game.Banking;
 using DaggerfallWorkshop.Game.Guilds;
+using DaggerfallWorkshop.Game.Questing;
 
 namespace DaggerfallWorkshop
 {
@@ -30,7 +31,7 @@ namespace DaggerfallWorkshop
         const int propModelType = 3;
 
         private const int posMask = 0x3FF;  // 10 bits
-        private const string peopleFlats = "People Flats";
+        public const string peopleFlats = "People Flats";
 
         const uint houseContainerObjectGroup = 418;
         const uint containerObjectGroupOffset = 41000;
@@ -620,7 +621,7 @@ namespace DaggerfallWorkshop
                 GameObject go = GameObjectHelper.CreateDaggerfallBillboardGameObject(obj.TextureArchive, obj.TextureRecord, node.transform);
 
                 // Set position
-                DaggerfallBillboard dfBillboard = go.GetComponent<DaggerfallBillboard>();
+                Billboard dfBillboard = go.GetComponent<Billboard>();
                 go.transform.position = billboardPosition;
                 go.transform.position += new Vector3(0, dfBillboard.Summary.Size.y / 2, 0);
 
@@ -658,7 +659,7 @@ namespace DaggerfallWorkshop
                 }
 
                 // Add point lights
-                if (obj.TextureArchive == TextureReader.LightsTextureArchive)
+                if (obj.TextureArchive == TextureReader.LightsTextureArchive && !DaggerfallUnity.Settings.AmbientLitInteriors)
                 {
                     AddLight(obj, go.transform);
                 }
@@ -932,13 +933,26 @@ namespace DaggerfallWorkshop
                     // Spawn billboard gameobject
                     go = GameObjectHelper.CreateDaggerfallBillboardGameObject(obj.TextureArchive, obj.TextureRecord, node.transform);
 
+                    // Handle non-classic textures, which may not have had their collision component added
+                    if(!go.GetComponent<Collider>())
+                    {
+                        Collider col = go.AddComponent<BoxCollider>();
+                        col.isTrigger = true;
+                    }
+
                     // Set position
-                    DaggerfallBillboard dfBillboard = go.GetComponent<DaggerfallBillboard>();
+                    Billboard dfBillboard = go.GetComponent<Billboard>();
                     go.transform.position = billboardPosition;
                     go.transform.position += new Vector3(0, dfBillboard.Summary.Size.y / 2, 0);
 
                     // Add RMB data to billboard
                     dfBillboard.SetRMBPeopleData(obj);
+                }
+                else
+                {
+                    Billboard dfBillboard = go.GetComponent<Billboard>();
+                    if (dfBillboard)
+                        dfBillboard.SetRMBPeopleData(obj);
                 }
 
                 // Add StaticNPC behaviour
@@ -962,6 +976,10 @@ namespace DaggerfallWorkshop
                 else if (buildingData.buildingType == DFLocation.BuildingTypes.House2 && buildingData.factionID != 0 && !isMemberOfBuildingGuild)
                 {
                     go.SetActive(false);
+                }
+                else
+                {
+                    QuestMachine.Instance.SetupIndividualStaticNPC(go, obj.FactionID);
                 }
             }
         }

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -21,6 +21,7 @@ using DaggerfallConnect.Utility;
 using DaggerfallConnect;
 using DaggerfallConnect.Arena2;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
+using DaggerfallWorkshop.Game.Formulas;
 
 namespace DaggerfallWorkshop.Game.Banking
 {
@@ -174,7 +175,7 @@ namespace DaggerfallWorkshop.Game.Banking
 
         #region Loans and accounts:
 
-        private static int loanMaxPerLevel = 50000;
+        public static int loanMaxPerLevel = 50000;
 
         private static double locCommission = 1.01;
 
@@ -431,7 +432,7 @@ namespace DaggerfallWorkshop.Game.Banking
 
             // Add note to journal
             playerEntity.Notebook.AddNote(
-                TextManager.Instance.GetLocalizedText("houseDeed").Replace("%town", location.Name).Replace("%region", MapsFile.RegionNames[regionIndex]));
+                TextManager.Instance.GetLocalizedText("houseDeed").Replace("%town", location.Name).Replace("%region", TextManager.Instance.GetLocalizedRegionName(regionIndex)));
         }
 
         public static TransactionResult SellHouse(int regionIndex)
@@ -493,13 +494,6 @@ namespace DaggerfallWorkshop.Game.Banking
             return TransactionResult.NONE;
         }
 
-        //unoffical wiki says max possible loan is 1,100,000 but testing indicates otherwise
-        //rep. doesn't seem to effect cap, it's just level * 50k
-        public static int CalculateMaxLoan()
-        {
-            return GameManager.Instance.PlayerEntity.Level * loanMaxPerLevel;
-        }
-
         //note - uses inv. gold pieces, account gold & loc
         private static TransactionResult RepayLoan(ref int amount, bool accountOnly, int regionIndex)
         {
@@ -539,11 +533,11 @@ namespace DaggerfallWorkshop.Game.Banking
             TransactionResult result = TransactionResult.NONE;
             if (amount < 100)
                 result = TransactionResult.LOAN_REQUEST_TOO_LOW;
-            else if (amount > CalculateMaxLoan())
+            else if (amount > FormulaHelper.CalculateMaxBankLoan())
                 result = TransactionResult.LOAN_REQUEST_TOO_HIGH;
             else
             {
-                BankAccounts[regionIndex].loanTotal += (int)(amount + amount * .1);
+                BankAccounts[regionIndex].loanTotal += FormulaHelper.CalculateBankLoanRepayment(amount, regionIndex);
                 BankAccounts[regionIndex].accountGold += amount;
                 bankAccounts[regionIndex].loanDueDate = DaggerfallUnity.Instance.WorldTime.DaggerfallDateTime.ToClassicDaggerfallTime() + loanRepayMinutes;
             }

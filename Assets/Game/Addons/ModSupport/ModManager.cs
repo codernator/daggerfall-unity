@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -754,7 +754,7 @@ namespace DaggerfallWorkshop.Game.Utility.ModSupport
         /// </summary>
         /// <param name="source">The content of source files.</param>
         /// <returns>The compiled assembly or null.</returns>
-        public static Assembly CompileFromSourceAssets(string[] source)
+        public static Assembly CompileFromSourceAssets(string[] source, string modName = "(no mod name)")
         {
             if (source == null || source.Length < 1)
             {
@@ -771,7 +771,7 @@ namespace DaggerfallWorkshop.Game.Utility.ModSupport
             }
             catch (Exception ex)
             {
-                Debug.LogError(ex.Message);
+                Debug.LogError($"[{modName}] {ex.Message}");
                 return null;
             }
         }
@@ -1048,6 +1048,15 @@ namespace DaggerfallWorkshop.Game.Utility.ModSupport
                             continue;
 
                         errorMessages.Add(string.Format(GetText("dependencyIsMissing"), dependency.Name));
+                        continue;
+                    }
+
+                    if (!target.Enabled)
+                    {
+                        if (dependency.IsOptional)
+                            continue;
+
+                        errorMessages.Add(string.Format(GetText("dependencyNotEnabled"), dependency.Name));
                         continue;
                     }
 

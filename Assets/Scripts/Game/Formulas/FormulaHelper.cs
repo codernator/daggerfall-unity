@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -23,6 +23,7 @@ using DaggerfallWorkshop.Utility;
 using DaggerfallConnect.Save;
 using DaggerfallWorkshop.Game.Utility;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
+using DaggerfallWorkshop.Game.Banking;
 
 namespace DaggerfallWorkshop.Game.Formulas
 {
@@ -147,6 +148,7 @@ namespace DaggerfallWorkshop.Game.Formulas
 
             // Roll bonus pool for player to distribute
             // Using maxBonusPool + 1 for inclusive range
+            UnityEngine.Random.InitState(Time.frameCount);
             return UnityEngine.Random.Range(minBonusPool, maxBonusPool + 1);
         }
 
@@ -316,6 +318,10 @@ namespace DaggerfallWorkshop.Game.Formulas
         // Calculate how many uses a skill needs before its value will rise.
         public static int CalculateSkillUsesForAdvancement(int skillValue, int skillAdvancementMultiplier, float careerAdvancementMultiplier, int level)
         {
+            Func<int, int, float, int, int> del;
+            if (TryGetOverride("CalculateSkillUsesForAdvancement", out del))
+                return del(skillValue, skillAdvancementMultiplier, careerAdvancementMultiplier, level);
+
             double levelMod = Math.Pow(1.04, level);
             return (int)Math.Floor((skillValue * skillAdvancementMultiplier * careerAdvancementMultiplier * levelMod * 2 / 5) + 1);
         }
@@ -816,7 +822,7 @@ namespace DaggerfallWorkshop.Game.Formulas
             // Apply monster modifier and biography adjustments.
             chanceToHit += CalculateAdjustmentsToHit(attacker, target);
 
-            Mathf.Clamp(chanceToHit, 3, 97);
+            chanceToHit = Mathf.Clamp(chanceToHit, 3, 97);
 
             return Dice100.SuccessRoll(chanceToHit);
         }
@@ -1514,6 +1520,9 @@ namespace DaggerfallWorkshop.Game.Formulas
             if (savingThrow >= 100)
                 return 0;
 
+            // Increase saving throw by MagicResist, equal to LiveWillpower / 10 (rounded down)
+            savingThrow += target.MagicResist;
+
             savingThrow = Mathf.Clamp(savingThrow, 5, 95);
 
             int percentDamageOrDuration = 100;
@@ -1533,6 +1542,10 @@ namespace DaggerfallWorkshop.Game.Formulas
 
         public static int SavingThrow(IEntityEffect sourceEffect, DaggerfallEntity target)
         {
+            Func<IEntityEffect, DaggerfallEntity, int> del;
+            if (TryGetOverride("SavingThrowSpellEffect", out del))
+                return del(sourceEffect, target);
+
             if (sourceEffect == null || sourceEffect.ParentBundle == null)
                 return 100;
 
@@ -1894,6 +1907,10 @@ namespace DaggerfallWorkshop.Game.Formulas
 
         public static int CalculateItemRepairTime(int condition, int max)
         {
+            Func<int, int, int> del;
+            if (TryGetOverride("CalculateItemRepairTime", out del))
+                return del(condition, max);
+
             int damage = max - condition;
             int repairTime = (damage * DaggerfallDateTime.SecondsPerDay / 1000);
             return Mathf.Max(repairTime, DaggerfallDateTime.SecondsPerDay);
@@ -1901,6 +1918,10 @@ namespace DaggerfallWorkshop.Game.Formulas
 
         public static int CalculateItemIdentifyCost(int baseItemValue, IGuild guild)
         {
+            Func<int, IGuild, int> del;
+            if (TryGetOverride("CalculateItemIdentifyCost", out del))
+                return del(baseItemValue, guild);
+
             // Free on Witches Festival
             uint minutes = DaggerfallUnity.Instance.WorldTime.DaggerfallDateTime.ToClassicDaggerfallTime();
             PlayerGPS gps = GameManager.Instance.PlayerGPS;
@@ -1966,6 +1987,26 @@ namespace DaggerfallWorkshop.Game.Formulas
             return amount;
         }
 
+        public static int CalculateMaxBankLoan()
+        {
+            Func<int> del;
+            if (TryGetOverride("CalculateMaxBankLoan", out del))
+                return del();
+
+            //unoffical wiki says max possible loan is 1,100,000 but testing indicates otherwise
+            //rep. doesn't seem to effect cap, it's just level * 50k
+            return GameManager.Instance.PlayerEntity.Level * DaggerfallBankManager.loanMaxPerLevel;
+        }
+
+        public static int CalculateBankLoanRepayment(int amount, int regionIndex)
+        {
+            Func<int, int, int> del;
+            if (TryGetOverride("CalculateBankLoanRepayment", out del))
+                return del(amount, regionIndex);
+
+            return (int)(amount + amount * .1);
+        }
+
         public static int ApplyRegionalPriceAdjustment(int cost)
         {
             Func<int, int> del;
@@ -2014,7 +2055,7 @@ namespace DaggerfallWorkshop.Game.Formulas
                         else
                             regionData[i].PriceAdjustment = (ushort)(51 * regionData[i].PriceAdjustment / 50);
 
-                        Mathf.Clamp(regionData[i].PriceAdjustment, 250, 4000);
+                        regionData[i].PriceAdjustment = (ushort)Mathf.Clamp(regionData[i].PriceAdjustment, 250, 4000);
                         if (regionData[i].PriceAdjustment <= 2000)
                         {
                             if (regionData[i].PriceAdjustment >= 500)
@@ -2050,21 +2091,6 @@ namespace DaggerfallWorkshop.Game.Formulas
                 return true;
             else
                 return false;
-        }
-
-        /// <summary>
-        /// Allows loot found in containers and enemy corpses to be modified.
-        /// </summary>
-        /// <param name="lootItems">An array of the loot items to modify</param>
-        /// <returns>The array of modified loot items</returns>
-        public static DaggerfallUnityItem[] ModifyFoundLootItems(ref DaggerfallUnityItem[] lootItems)
-        {
-            Func<DaggerfallUnityItem[], DaggerfallUnityItem[]> del;
-            if (TryGetOverride("ModifyFoundLootItems", out del))
-                return del(lootItems);
-
-            // DFU does no post-processing of loot items hence return array unchanged. This function is solely for mods to override.
-            return lootItems;
         }
 
         /// <summary>
@@ -2368,6 +2394,10 @@ namespace DaggerfallWorkshop.Game.Formulas
         /// <param name="enchantingItem">True if the method is used from the magic item maker.</param>
         public static int CalculateCastingCost(SpellRecord.SpellRecordData spell, bool enchantingItem= true)
         {
+            Func<SpellRecord.SpellRecordData, bool, int> del;
+            if (TryGetOverride("CalculateCastingCost", out del))
+                return del(spell, enchantingItem);
+
             // Indices into effect settings array for each effect and its subtypes
             byte[] effectIndices = {    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Paralysis
                                         0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Continuous Damage
@@ -2504,7 +2534,7 @@ namespace DaggerfallWorkshop.Game.Formulas
             
             for (int i = 0; i < 3; ++i)
             {
-                if (spell.effects[i].type != -1)
+                if (i < spell.effects.Length && spell.effects[i].type != -1)
                 {
                     // Get the coefficients applied to settings for this effect and copy them into the temporary variable
                     ushort[] coefficientsForThisEffect = new ushort[4];

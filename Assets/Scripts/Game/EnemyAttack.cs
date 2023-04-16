@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -36,7 +36,6 @@ namespace DaggerfallWorkshop.Game
         EnemySenses senses;
         EnemySounds sounds;
         MobileUnit mobile;
-        DaggerfallMobileUnit dfMobile;
         DaggerfallEntityBehaviour entityBehaviour;
         int damage = 0;
 
@@ -46,7 +45,6 @@ namespace DaggerfallWorkshop.Game
             senses = GetComponent<EnemySenses>();
             sounds = GetComponent<EnemySounds>();
             mobile = GetComponent<DaggerfallEnemy>().MobileUnit;
-            dfMobile = mobile as DaggerfallMobileUnit;
             entityBehaviour = GetComponent<DaggerfallEntityBehaviour>();
         }
 
@@ -76,7 +74,7 @@ namespace DaggerfallWorkshop.Game
 
             // Slow down enemy frame rate based on floored speed value
             // If enemy is still at maximum speed then divisor is 1 and will experience no change to frame rate
-            dfMobile.FrameSpeedDivisor = entity.Stats.PermanentSpeed / speed;
+            mobile.FrameSpeedDivisor = entity.Stats.PermanentSpeed / speed;
 
             // Note: Speed comparison here is reversed from classic. Classic's way makes fewer attack
             // attempts at higher speeds, so it seems backwards.
@@ -144,7 +142,8 @@ namespace DaggerfallWorkshop.Game
             else
                 damage = ApplyDamageToNonPlayer(entity.ItemEquipTable.GetItem(Items.EquipSlots.RightHand), direction, true);
 
-            Items.DaggerfallUnityItem arrow = Items.ItemBuilder.CreateItem(Items.ItemGroups.Weapons, (int)Items.Weapons.Arrow);
+            Items.DaggerfallUnityItem arrow = Items.ItemBuilder.CreateWeapon(Items.Weapons.Arrow, Items.WeaponMaterialTypes.None);
+            arrow.stackCount = 1;
             senses.Target.Entity.Items.AddItem(arrow);
         }
 

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -350,7 +350,6 @@ namespace DaggerfallWorkshop.Game.Items
         /// <param name="itemIndex">Template index.</param>
         /// <param name="priorityToConjured">Prefer (short lived) conjured items.</param>
         /// <returns>An item of this type, or null if none found.</returns>
-
         public DaggerfallUnityItem GetItem(ItemGroups itemGroup, int itemIndex, bool priorityToConjured)
         {
             return GetItem(itemGroup, itemIndex, true, true, priorityToConjured);
@@ -365,7 +364,6 @@ namespace DaggerfallWorkshop.Game.Items
         /// <param name="allowQuestItem">Include quest items.</param>
         /// <param name="priorityToConjured">Prefer (short lived) conjured items.</param>
         /// <returns>An item of this type, or null if none found.</returns>
-
         public DaggerfallUnityItem GetItem(ItemGroups itemGroup, int itemIndex, bool allowEnchantedItem = true, bool allowQuestItem = true, bool priorityToConjured = false)
         {
             int groupIndex = DaggerfallUnity.Instance.ItemHelper.GetGroupIndex(itemGroup, itemIndex);
@@ -484,15 +482,15 @@ namespace DaggerfallWorkshop.Game.Items
         /// UIDs will be retained.
         /// </summary>
         /// <param name="items">Items array.</param>
-        public void Import(DaggerfallUnityItem[] items)
+        public void Import(IEnumerable<DaggerfallUnityItem> items)
         {
-            if (items == null || items.Length == 0)
+            if (items == null)
                 return;
 
             Clear();
-            for (int i = 0; i < items.Length; i++)
+            foreach (var item in items)
             {
-                AddItem(items[i]);
+                AddItem(item);
             }
         }
 
@@ -502,14 +500,14 @@ namespace DaggerfallWorkshop.Game.Items
         /// UIDs will be retained.
         /// </summary>
         /// <param name="items">Items array.</param>
-        public void AddItems(DaggerfallUnityItem[] items)
+        public void AddItems(IEnumerable<DaggerfallUnityItem> items)
         {
-            if (items == null || items.Length == 0)
+            if (items == null)
                 return;
 
-            for (int i = 0; i < items.Length; i++)
+            foreach (var item in items)
             {
-                AddItem(items[i]);
+                AddItem(item);
             }
         }
 

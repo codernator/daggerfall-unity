@@ -1,5 +1,5 @@
-﻿// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+﻿// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -348,7 +348,7 @@ namespace DaggerfallConnect.Arena2
             if (record < 0 || record >= header.RecordCount || records == null)
                 return new DFSize(0, 0);
 
-            return new DFSize(records[record].ScaleX, records[record].ScaleX);
+            return new DFSize(records[record].ScaleX, records[record].ScaleY);
         }
 
         /// <summary>

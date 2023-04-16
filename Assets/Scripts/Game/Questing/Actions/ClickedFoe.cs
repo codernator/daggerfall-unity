@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -29,7 +29,7 @@ namespace DaggerfallWorkshop.Game.Questing
         {
             get
             {
-                return @"clicked (?<aFoe>[a-zA-Z0-9_.-]+) and at least (?<goldAmount>\d+) gold otherwise do (?<taskName>[a-zA-Z0-9_.]+)|" +
+                return @"clicked foe (?<aFoe>[a-zA-Z0-9_.-]+) and at least (?<goldAmount>\d+) gold otherwise do (?<taskName>[a-zA-Z0-9_.]+)|" +
                        @"clicked foe (?<aFoe>[a-zA-Z0-9_.-]+) say (?<id>\d+)|" +
                        @"clicked foe (?<aFoe>[a-zA-Z0-9_.-]+) say (?<idName>\w+)|" +
                        @"clicked foe (?<aFoe>[a-zA-Z0-9_.-]+)";

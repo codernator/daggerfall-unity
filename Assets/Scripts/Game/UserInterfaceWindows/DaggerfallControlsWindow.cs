@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -73,7 +73,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {
             base.Update();
 
-            if (!AllowCancel && !waitingForInput && Input.GetKeyDown(KeyCode.Escape))
+            if (!AllowCancel && !waitingForInput && InputManager.Instance.GetBackButtonDown())
             {
                 ShowMultipleAssignmentsMessage();
             }
@@ -389,7 +389,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             button.Label.Text = "";
             yield return new WaitForSecondsRealtime(0.05f);
 
-            while ((code1 = InputManager.Instance.GetAnyKeyDownIgnoreAxisBinds()) == KeyCode.None)
+            while ((code1 = InputManager.Instance.GetAnyKeyDownIgnoreAxisBinds(true)) == KeyCode.None)
             {
                 setWaitingForInput(true);
                 yield return null;
@@ -397,9 +397,9 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 
             yield return new WaitForSecondsRealtime(0.05f);
 
-            while ((code2 = InputManager.Instance.GetAnyKeyDownIgnoreAxisBinds()) == KeyCode.None)
+            while ((code2 = InputManager.Instance.GetAnyKeyDownIgnoreAxisBinds(true)) == KeyCode.None)
             {
-                if (InputManager.Instance.GetAnyKeyUpIgnoreAxisBinds() != KeyCode.None)
+                if (InputManager.Instance.GetAnyKeyUpIgnoreAxisBinds(true) != KeyCode.None)
                     break;
 
                 setWaitingForInput(true);

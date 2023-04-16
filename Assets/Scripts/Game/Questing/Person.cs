@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -11,6 +11,7 @@
 
 using UnityEngine;
 using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 using DaggerfallConnect;
 using DaggerfallWorkshop.Game.Entity;
@@ -176,6 +177,7 @@ namespace DaggerfallWorkshop.Game.Questing
             string genderName = string.Empty;
             int faceIndex = -1;
             bool atHome = false;
+            string locationScopeName = string.Empty;
 
             base.SetResource(line);
 
@@ -187,6 +189,7 @@ namespace DaggerfallWorkshop.Game.Questing
                                      @"faction (?<factionAlliance>[a-zA-Z0-9'_.-]+)|" +
                                      @"group (?<careerAlliance>[a-zA-Z0-9'_.-]+)|" +
                                      @"(?<gender>female|male)|" +
+                                     @"(?<locationScope>local|remote)|" +
                                      @"(?<atHome>(atHome|athome))";
 
             // Try to match source line with pattern
@@ -230,6 +233,11 @@ namespace DaggerfallWorkshop.Game.Questing
                     if (genderGroup.Success)
                         genderName = genderGroup.Value;
 
+                    // Location
+                    Group locationGroup = option.Groups["locationScope"];
+                    if (locationGroup.Success)
+                        locationScopeName = locationGroup.Value;
+
                     // At home
                     Group atHomeGroup = option.Groups["atHome"];
                     atHome = atHomeGroup.Success;
@@ -262,7 +270,7 @@ namespace DaggerfallWorkshop.Game.Questing
                 AssignGender(genderName);
                 AssignHUDFace(faceIndex);
                 AssignDisplayName();
-                AssignHomeTown();
+                AssignHomeTown(locationScopeName);
 
                 // Is NPC at home?
                 isIndividualAtHome = atHome;
@@ -283,9 +291,12 @@ namespace DaggerfallWorkshop.Game.Questing
             // Store this person in quest as last Person encountered
             // This will be used for subsequent pronoun macros, etc.
             ParentQuest.LastResourceReferenced = this;
-            Place homePlace = GetHomePlace();
-            if (homePlace != null)
-                ParentQuest.LastPlaceReferenced = homePlace;
+
+            Place dialogPlace = GetDialogPlace();
+            if (dialogPlace != null)
+            {
+                ParentQuest.LastPlaceReferenced = dialogPlace;
+            }
 
             textOut = string.Empty;
             bool result = true;
@@ -295,16 +306,16 @@ namespace DaggerfallWorkshop.Game.Questing
                     textOut = displayName;
                     break;
 
-                case MacroTypes.NameMacro2:             // Home building name
-                    textOut = GetHomeBuildingName();
+                case MacroTypes.NameMacro2:             // building name
+                    textOut = (dialogPlace != null ? dialogPlace.SiteDetails.buildingName : BLANK);
                     break;
 
-                case MacroTypes.NameMacro3:             // Home town name
-                    textOut = GetHomePlaceLocationName();
+                case MacroTypes.NameMacro3:             // town name
+                    textOut = (dialogPlace != null ? TextManager.Instance.GetLocalizedLocationName(dialogPlace.SiteDetails.mapId, dialogPlace.SiteDetails.locationName) : BLANK);
                     break;
 
-                case MacroTypes.NameMacro4:             // Home region name
-                    textOut = GetHomePlaceRegionName();
+                case MacroTypes.NameMacro4:             // region name
+                    textOut = (dialogPlace != null ? TextManager.Instance.GetLocalizedRegionName(dialogPlace.SiteDetails.regionIndex) : BLANK);
                     break;
 
                 case MacroTypes.DetailsMacro:           // Details macro
@@ -361,7 +372,7 @@ namespace DaggerfallWorkshop.Game.Questing
             // Get flat caption for this ID, e.g. "young lady in green", or fallback to race
             FlatsFile.FlatData flatCFG;
             if (DaggerfallUnity.Instance.ContentReader.FlatsFileReader.GetFlatData(flatID, out flatCFG))
-                return flatCFG.caption;
+                return TextManager.Instance.GetLocalizedText(flatID.ToString(), TextCollections.TextFlats);
             else
                 return RaceTemplate.GetRaceDictionary()[(int)race].Name;
         }
@@ -371,10 +382,11 @@ namespace DaggerfallWorkshop.Game.Questing
             base.Tick(caller);
 
             // Auto-assign NPC to home Place if available and player enters
+            // (but only if not already placed, e.g. by PlaceNpc action)
             // This only happens for very specific NPC types
             // Equivalent to calling "place anNPC at aPlace" from script
             // Will not be called again as assignment is permanent for duration of quest
-            if (homePlaceSymbol != null && !assignedToHome)
+            if (lastAssignedPlaceSymbol == null && homePlaceSymbol != null && !assignedToHome)
             {
                 Place home = ParentQuest.GetPlace(homePlaceSymbol);
                 if (home == null)
@@ -412,6 +424,20 @@ namespace DaggerfallWorkshop.Game.Questing
             assignedToHome = true;
 
             return true;
+        }
+
+        /// <summary>
+        /// Gets best Place resource for use in dialog.
+        /// </summary>
+        /// <returns>Assigned Place resource or Home Place resource if not assigned.</returns>
+        public Place GetDialogPlace()
+        {
+            if (lastAssignedPlaceSymbol != null)
+            {
+                return ParentQuest.GetPlace(lastAssignedPlaceSymbol);
+            }
+
+            return GetHomePlace();
         }
 
         /// <summary>
@@ -597,7 +623,7 @@ namespace DaggerfallWorkshop.Game.Questing
             }
         }
 
-        void AssignHomeTown()
+        void AssignHomeTown(string scopeString)
         {
             const string houseString = "house";
 
@@ -620,11 +646,28 @@ namespace DaggerfallWorkshop.Game.Questing
                 }
             }
 
-            // For other NPCs use default scope and building type
-            Place.Scopes scope = Place.Scopes.Remote;
-            string buildingTypeString = houseString;
+            // If this is an individual NPC who is not at home, don't place for now
+            // as this has to be done by the "place _person_ at" command
+            if (IsIndividualNPC)
+                return;
 
-            // Adjust scope and building type based on faction hints
+            // For other NPCs use the given scope if any 
+            if (string.IsNullOrEmpty(scopeString))
+            {
+                // Else generate it at random only if there are local buildings
+                if (GameManager.Instance.PlayerGPS.HasCurrentLocation &&
+                    GameManager.Instance.PlayerGPS.CurrentLocation.Exterior.BuildingCount > 0)
+                {
+                    scopeString = UnityEngine.Random.Range(0.0f, 1.0f) < 0.5f ? "local" : "remote";
+                }
+                else
+                {
+                    scopeString = "remote";
+                }
+            }
+
+            // Adjust building type based on faction hints
+            string buildingTypeString = houseString;
             int p1 = 0, p2 = 0, p3 = 0;
             if (!string.IsNullOrEmpty(factionTableKey))
             {
@@ -632,31 +675,12 @@ namespace DaggerfallWorkshop.Game.Questing
                 p1 = Parser.ParseInt(QuestMachine.Instance.FactionsTable.GetValue("p1", factionTableKey));
                 p2 = Parser.ParseInt(QuestMachine.Instance.FactionsTable.GetValue("p2", factionTableKey));
                 p3 = Parser.ParseInt(QuestMachine.Instance.FactionsTable.GetValue("p3", factionTableKey));
-
-                // Set based on parameters
-                if (p1 == 0 && p2 < -2 && p2 != -6)
-                {
-                    // From usage in the quests it appears -3 and lower are local.
-                    // Referencing quest Sx009 where player must locate and click an NPC with only a home location to go by
-                    // and K0C00Y04 where two Group_7 npcs are local.
-                    // Interkarma Note: -6 is used by Thieves Guild introduction quest O0A0AL00 and should be a remote NPC. Treating -6 as remote.
-                    scope = Place.Scopes.Local;
-                }
-                else if (p1 == 0 && p2 >= 0 && p2 <= 20 && p3 == 0)
+                if (p1 == 0 && p2 >= 0 && p2 <= 20 && p3 == 0)
                 {
                     // Set to a specific building type
                     buildingTypeString = QuestMachine.Instance.PlacesTable.GetKeyForValue("p2", p2.ToString());
                 }
             }
-
-            // Get scope string - must be "local" or "remote"
-            string scopeString = string.Empty;
-            if (scope == Place.Scopes.Local)
-                scopeString = "local";
-            else if (scope == Place.Scopes.Remote)
-                scopeString = "remote";
-            else
-                throw new Exception("AssignHomeTown() scope must be either 'local' or 'remote'.");
 
             // Create the home location - this will try to match NPC group (e.g. a Noble will select a Palace)
             try
@@ -1060,6 +1084,10 @@ namespace DaggerfallWorkshop.Game.Questing
         {
             // Find all factions of type
             FactionFile.FactionData[] factions = GameManager.Instance.PlayerEntity.FactionData.FindFactions(factionType);
+
+            // Strip "Generic Temple" from random Temple pool
+            if (factionType == (int)FactionFile.FactionTypes.Temple)
+                factions = factions.Where(val => val.id != 450).ToArray();
 
             // Should always find at least one
             if (factions == null || factions.Length == 0)

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -61,6 +61,7 @@ namespace DaggerfallWorkshop.Game.Items
         readonly Dictionary<int, ImageData> itemImages = new Dictionary<int, ImageData>();
         readonly Dictionary<InventoryContainerImages, ImageData> containerImages = new Dictionary<InventoryContainerImages, ImageData>();
         readonly Dictionary<int, String> bookIDNameMapping = new Dictionary<int, String>();
+        readonly Dictionary<int, String> localizedBookIDNameMapping = new Dictionary<int, string>();
 
         public delegate bool ItemUseHandler(DaggerfallUnityItem item, ItemCollection collection);
         Dictionary<int, ItemUseHandler> itemUseHandlers = new Dictionary<int, ItemUseHandler>();
@@ -237,6 +238,10 @@ namespace DaggerfallWorkshop.Game.Items
         /// <returns>Item group index, or -1 if not found.</returns>
         public int GetGroupIndex(ItemGroups itemGroup, int templateIndex)
         {
+            // Items added by mods are after last DF template, and groupIndex == templateIndex
+            if (templateIndex > LastDFTemplate)
+                return templateIndex;
+
             Array values = GetEnumArray(itemGroup);
             for (int i = 0; i < values.Length; i++)
             {
@@ -470,7 +475,7 @@ namespace DaggerfallWorkshop.Game.Items
                 // Change dye or just update texture
                 ItemGroups group = item.ItemGroup;
                 DyeColors dye = (DyeColors)color;
-                if (group == ItemGroups.Weapons || group == ItemGroups.Armor)
+                if ((group == ItemGroups.Weapons || group == ItemGroups.Armor) && !item.IsArtifact)
                     data = ChangeDye(data, dye, DyeTargets.WeaponsAndArmor);
                 else if (item.ItemGroup == ItemGroups.MensClothing || item.ItemGroup == ItemGroups.WomensClothing)
                     data = ChangeDye(data, dye, DyeTargets.Clothing);
@@ -546,6 +551,21 @@ namespace DaggerfallWorkshop.Game.Items
         /// <returns>The title of the bookd or defaultBookName if no name was found.</returns>
         public string GetBookTitle(int id, string defaultBookTitle)
         {
+            // Get cached localized book title if previously read
+            if (localizedBookIDNameMapping.ContainsKey(id))
+                return localizedBookIDNameMapping[id];
+
+            // Get book title from localized book file as first preference
+            // Localized title will be cached so file is only read once
+            string filename = GetBookFileName(id);
+            LocalizedBook localizedBook = new LocalizedBook();
+            if (localizedBook.OpenLocalizedBookFile(filename))
+            {
+                localizedBookIDNameMapping.Add(id, localizedBook.Title);
+                return localizedBook.Title;
+            }
+
+            // Fallback to legacy data
             string title;
             return bookIDNameMapping.TryGetValue(id, out title) ? title : defaultBookTitle;
         }
@@ -900,7 +920,7 @@ namespace DaggerfallWorkshop.Game.Items
                                 case (int)ArtifactsSubTypes.Mace_of_Molag_Bal:
                                     return MetalTypes.Ebony;
                                 case (int)ArtifactsSubTypes.Wabbajack:
-                                    return MetalTypes.Steel;
+                                    return MetalTypes.Dwarven;
                                 default:
                                     break;
                             }
@@ -908,7 +928,7 @@ namespace DaggerfallWorkshop.Game.Items
                     }
                     // Artifact weapons with no unique effects
                     if (item.ItemName == "Chrysamere")
-                        return MetalTypes.Elven;
+                        return MetalTypes.Mithril;
                     if (item.ItemName == "Staff of Magnus")
                         return MetalTypes.Mithril;
                 }

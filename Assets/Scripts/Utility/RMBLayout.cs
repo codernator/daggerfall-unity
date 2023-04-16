@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -17,6 +17,7 @@ using DaggerfallConnect.Arena2;
 using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallWorkshop.Game;
 using System.Linq;
+using DaggerfallWorkshop.Game.Questing;
 
 namespace DaggerfallWorkshop.Utility
 {
@@ -40,13 +41,18 @@ namespace DaggerfallWorkshop.Utility
         public const uint CityGateClosedModelID = 447;
         public const uint BulletinBoardModelID = 41739;
 
+#if !UNITY_EDITOR
         private static int maxLocationCacheSize = 12;
+#endif
         private static List<KeyValuePair<int, DFBlock[]>> locationCache = new List<KeyValuePair<int, DFBlock[]>>();
 
-        #endregion
+        /// <summary>Clear the location cache. Use if block data is changed dynamically.</summary>
+        public static void ClearLocationCache()
+        {
+            locationCache.Clear();
+        }
 
-        // Animal sounds range. Matched to classic.
-        const float animalSoundMaxDistance = 768 * MeshReader.GlobalScale;
+        #endregion
 
         #region Structures
 
@@ -320,6 +326,8 @@ namespace DaggerfallWorkshop.Utility
         public static void AddMiscBlockFlats(
             ref DFBlock blockData,
             Transform flatsParent,
+            int mapId,
+            int locationIndex,
             DaggerfallBillboardBatch animalsBillboardBatch = null,
             TextureAtlasBuilder miscBillboardsAtlas = null,
             DaggerfallBillboardBatch miscBillboardsBatch = null)
@@ -340,48 +348,126 @@ namespace DaggerfallWorkshop.Utility
                     obj.XPos,
                     -obj.YPos + blockFlatsOffsetY,
                     obj.ZPos + BlocksFile.RMBDimension) * MeshReader.GlobalScale;
-
-                // Import custom 3d gameobject instead of flat
-                if (MeshReplacement.ImportCustomFlatGameobject(obj.TextureArchive, obj.TextureRecord, billboardPosition, flatsParent) != null)
-                    continue;
-
-                //// Use misc billboard atlas where available
-                //if (miscBillboardsAtlas != null && miscBillboardsBatch != null)
-                //{
-                //    TextureAtlasBuilder.AtlasItem item = miscBillboardsAtlas.GetAtlasItem(obj.TextureArchive, obj.TextureRecord);
-                //    if (item.key != -1)
-                //    {
-                //        miscBillboardsBatch.AddItem(item.rect, item.textureItem.size, item.textureItem.scale, billboardPosition);
-                //        continue;
-                //    }
-                //}
-
-                // Add to batch where available
-                //if (obj.TextureArchive == TextureReader.AnimalsTextureArchive && animalsBillboardBatch != null)
-                //{
-                //    animalsBillboardBatch.AddItem(obj.TextureRecord, billboardPosition);
-                //    continue;
-                //}
-
-                // Add standalone billboard gameobject
-                GameObject go = GameObjectHelper.CreateDaggerfallBillboardGameObject(obj.TextureArchive, obj.TextureRecord, flatsParent);
-                go.transform.position = billboardPosition;
-                AlignBillboardToBase(go);
+                
+                GameObject go = MeshReplacement.ImportCustomFlatGameobject(obj.TextureArchive, obj.TextureRecord, billboardPosition, flatsParent);
+                if (go == null)
+                {
+                    // Add standalone billboard gameobject
+                    go = GameObjectHelper.CreateDaggerfallBillboardGameObject(obj.TextureArchive, obj.TextureRecord, flatsParent);
+                    go.transform.position = billboardPosition;
+                    AlignBillboardToBase(go);
+                }
 
                 // Add animal sound
                 if (obj.TextureArchive == TextureReader.AnimalsTextureArchive)
-                    AddAnimalAudioSource(go);
+                    GameObjectHelper.AddAnimalAudioSource(go, obj.TextureRecord);
 
                 // If flat record has a non-zero faction id, then it's an exterior NPC
                 if (obj.FactionID != 0)
                 {
                     // Add RMB data to billboard
-                    DaggerfallBillboard dfBillboard = go.GetComponent<DaggerfallBillboard>();
-                    dfBillboard.SetRMBPeopleData(obj.FactionID, obj.Flags, obj.Position);
+                    Billboard dfBillboard = go.GetComponent<Billboard>();
+                    if (dfBillboard != null)
+                        dfBillboard.SetRMBPeopleData(obj.FactionID, obj.Flags, obj.Position);
 
                     // Add StaticNPC behaviour
                     StaticNPC npc = go.AddComponent<StaticNPC>();
-                    npc.SetLayoutData(obj);
+                    npc.SetLayoutData(obj, mapId, locationIndex);
+
+                    QuestMachine.Instance.SetupIndividualStaticNPC(go, obj.FactionID);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Add subrecord (building) exterior block flats.
+        /// </summary>
+        public static void AddExteriorBlockFlats(
+            ref DFBlock blockData,
+            Transform flatsParent,
+            Transform lightsParent,
+            int mapId,
+            int locationIndex,
+            ClimateNatureSets climateNature = ClimateNatureSets.TemperateWoodland,
+            ClimateSeason climateSeason = ClimateSeason.Summer)
+        {
+            DaggerfallUnity dfUnity = DaggerfallUnity.Instance;
+            if (!dfUnity.IsReady)
+                return;
+
+            // Get Nature Archive
+            int natureArchive = ClimateSwaps.GetNatureArchive(climateNature, climateSeason);
+
+            foreach (DFBlock.RmbSubRecord subRecord in blockData.RmbBlock.SubRecords)
+            {
+                Vector3 subRecordPosition = new Vector3(subRecord.XPos, 0, -subRecord.ZPos) * MeshReader.GlobalScale;
+
+                foreach (DFBlock.RmbBlockFlatObjectRecord obj in subRecord.Exterior.BlockFlatObjectRecords)
+                {
+                    // Don't add building exterior editor flats since they can't be used by any DFU systems
+                    int archive = obj.TextureArchive;
+                    if (archive == TextureReader.EditorFlatsTextureArchive)
+                        continue;
+
+                    // Calculate position
+                    Vector3 billboardPosition = new Vector3(
+                        obj.XPos,
+                        -obj.YPos + blockFlatsOffsetY,
+                        obj.ZPos + BlocksFile.RMBDimension) * MeshReader.GlobalScale;
+
+                    billboardPosition += subRecordPosition;
+
+                    // Add natures using correct climate set archive
+                    if (archive >= (int)DFLocation.ClimateTextureSet.Nature_RainForest && archive <= (int)DFLocation.ClimateTextureSet.Nature_Mountains_Snow)
+                    {
+                        archive = natureArchive;
+                        billboardPosition.z = natureFlatsOffsetY;
+                    }
+
+                    GameObject go = MeshReplacement.ImportCustomFlatGameobject(archive, obj.TextureRecord, billboardPosition, flatsParent);
+                    bool isImported = go != null;
+                    if (!isImported)
+                    {
+                        // Add standalone billboard gameobject
+                        go = GameObjectHelper.CreateDaggerfallBillboardGameObject(archive, obj.TextureRecord, flatsParent);
+                        go.transform.position = billboardPosition;
+                        AlignBillboardToBase(go);
+                    }
+
+                    // Add animal sound
+                    if (archive == TextureReader.AnimalsTextureArchive)
+                        GameObjectHelper.AddAnimalAudioSource(go, obj.TextureRecord);
+
+                    // If flat record has a non-zero faction id, then it's an exterior NPC
+                    if (obj.FactionID != 0)
+                    {
+                        // Add RMB data to billboard
+                        Billboard dfBillboard = go.GetComponent<Billboard>();
+                        if (dfBillboard != null)
+                            dfBillboard.SetRMBPeopleData(obj.FactionID, obj.Flags, obj.Position);
+
+                        // Add StaticNPC behaviour
+                        StaticNPC npc = go.AddComponent<StaticNPC>();
+                        npc.SetLayoutData(obj, mapId, locationIndex);
+
+                        QuestMachine.Instance.SetupIndividualStaticNPC(go, obj.FactionID);
+                    }
+
+                    // If this is a light flat, import light prefab
+                    if (archive == TextureReader.LightsTextureArchive && !isImported)
+                    {
+                        if (dfUnity.Option_CityLightPrefab == null)
+                            return;
+
+                        Vector2 size = dfUnity.MeshReader.GetScaledBillboardSize(210, obj.TextureRecord);
+                        Vector3 position = new Vector3(
+                            obj.XPos,
+                            -obj.YPos + size.y,
+                            obj.ZPos + BlocksFile.RMBDimension) * MeshReader.GlobalScale;
+                        position += subRecordPosition;
+
+                        GameObjectHelper.InstantiatePrefab(dfUnity.Option_CityLightPrefab.gameObject, string.Empty, lightsParent, position);
+                    }
                 }
             }
         }
@@ -393,7 +479,7 @@ namespace DaggerfallWorkshop.Utility
         /// <param name="go">GameObject with DaggerfallBillboard component.</param>
         public static void AlignBillboardToBase(GameObject go)
         {
-            DaggerfallBillboard c = go.GetComponent<DaggerfallBillboard>();
+            Billboard c = go.GetComponent<Billboard>();
             if (c)
             {
                 c.AlignToBase();
@@ -546,6 +632,11 @@ namespace DaggerfallWorkshop.Utility
                     if (!contentReader.GetBlock(blockName, out block))
                         throw new Exception("GetCompleteBuildingData() could not read block " + blockName);
 
+                    // Make a copy of the building data array for our block copy since we're modifying it
+                    DFLocation.BuildingData[] buildingArray = new DFLocation.BuildingData[block.RmbBlock.FldHeader.BuildingDataList.Length];
+                    Array.Copy(block.RmbBlock.FldHeader.BuildingDataList, buildingArray, block.RmbBlock.FldHeader.BuildingDataList.Length);
+                    block.RmbBlock.FldHeader.BuildingDataList = buildingArray;
+
                     // Assign building data for this block
                     BuildingReplacementData buildingReplacementData;
                     for (int i = 0; i < block.RmbBlock.SubRecords.Length; i++)
@@ -600,10 +691,11 @@ namespace DaggerfallWorkshop.Utility
 
             blocksArray = blocks.ToArray();
 
-            // Cache blocks
+#if !UNITY_EDITOR // Cache blocks for this location if not in editor
             if (locationCache.Count == maxLocationCacheSize)
                 locationCache.RemoveAt(0);
             locationCache.Add(new KeyValuePair<int, DFBlock[]>(mapId, blocksArray));
+#endif
 
             return blocksArray;
         }
@@ -913,42 +1005,6 @@ namespace DaggerfallWorkshop.Utility
             return modelID == BulletinBoardModelID;
         }
 
-        private static void AddAnimalAudioSource(GameObject go)
-        {
-            DaggerfallAudioSource source = go.AddComponent<DaggerfallAudioSource>();
-            source.AudioSource.maxDistance = animalSoundMaxDistance;
-
-            DaggerfallBillboard dfBillboard = go.GetComponent<DaggerfallBillboard>();
-            SoundClips sound = SoundClips.None;
-            switch (dfBillboard.Summary.Record)
-            {
-                case 0:
-                case 1:
-                    sound = SoundClips.AnimalHorse;
-                    break;
-                case 3:
-                case 4:
-                    sound = SoundClips.AnimalCow;
-                    break;
-                case 5:
-                case 6:
-                    sound = SoundClips.AnimalPig;
-                    break;
-                case 7:
-                case 8:
-                    sound = SoundClips.AnimalCat;
-                    break;
-                case 9:
-                case 10:
-                    sound = SoundClips.AnimalDog;
-                    break;
-                default:
-                    sound = SoundClips.None;
-                    break;
-            }
-
-            source.SetSound(sound, AudioPresets.PlayRandomlyIfPlayerNear);
-        }
 
         #endregion
     }

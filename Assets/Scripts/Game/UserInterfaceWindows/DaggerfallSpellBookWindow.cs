@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -121,6 +121,8 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             : base(uiManager, previous)
         {
             this.buyMode = buyMode;
+            // Prevent duplicate close calls with base class's exitKey (Escape)
+            AllowCancel = false;
         }
 
         #endregion
@@ -207,7 +209,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             if (DaggerfallUI.Instance.HotkeySequenceProcessed == HotkeySequence.HotkeySequenceProcessStatus.NotFound)
             {
                 // Toggle window closed with same hotkey used to open it
-                if (InputManager.Instance.GetKeyUp(toggleClosedBinding))
+                if (InputManager.Instance.GetKeyUp(toggleClosedBinding) || InputManager.Instance.GetBackButtonUp())
                     CloseWindow();
             }
         }
@@ -283,18 +285,21 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {
             // Load spells for sale
             offeredSpells.Clear();
-            List<SpellRecord.SpellRecordData> standardSpells = DaggerfallSpellReader.ReadSpellsFile(Path.Combine(DaggerfallUnity.Arena2Path, spellsFilename));
-            if (standardSpells == null || standardSpells.Count == 0)
+
+            var effectBroker = GameManager.Instance.EntityEffectBroker;
+
+            IEnumerable<SpellRecord.SpellRecordData> standardSpells = effectBroker.StandardSpells;
+            if (standardSpells == null || standardSpells.Count() == 0)
             {
                 Debug.LogError("Failed to load SPELLS.STD for spellbook in buy mode.");
                 return;
             }
 
             // Add standard spell bundles to offer
-            for (int i = 0; i < standardSpells.Count; i++)
+            foreach(SpellRecord.SpellRecordData standardSpell in standardSpells)
             {
                 // Filter internal spells starting with exclamation point '!'
-                if (standardSpells[i].spellName.StartsWith("!"))
+                if (standardSpell.spellName.StartsWith("!"))
                     continue;
 
                 // NOTE: Classic allows purchase of duplicate spells
@@ -303,7 +308,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 
                 // Get effect bundle settings from classic spell
                 EffectBundleSettings bundle;
-                if (!GameManager.Instance.EntityEffectBroker.ClassicSpellRecordDataToEffectBundleSettings(standardSpells[i], BundleTypes.Spell, out bundle))
+                if (!effectBroker.ClassicSpellRecordDataToEffectBundleSettings(standardSpell, BundleTypes.Spell, out bundle))
                     continue;
 
                 // Store offered spell and add to list box
@@ -311,7 +316,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             }
 
             // Add custom spells for sale bundles to list of offered spells
-            offeredSpells.AddRange(GameManager.Instance.EntityEffectBroker.GetCustomSpellBundles(EntityEffectBroker.CustomSpellBundleOfferUsage.SpellsForSale));
+            offeredSpells.AddRange(effectBroker.GetCustomSpellBundles(EntityEffectBroker.CustomSpellBundleOfferUsage.SpellsForSale));
 
             // Sort spells for easier finding
             offeredSpells = offeredSpells.OrderBy(x => x.Name).ToList();

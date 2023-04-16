@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -405,7 +405,7 @@ namespace DaggerfallWorkshop
                 if (assign)
                     startMarker = dfBlock.StartMarkers[0];
 
-                DaggerfallBillboard dfBillboard = dfBlock.StartMarkers[0].GetComponent<DaggerfallBillboard>();
+                Billboard dfBillboard = dfBlock.StartMarkers[0].GetComponent<Billboard>();
                 block.WaterLevel = dfBillboard.Summary.WaterLevel;
                 block.CastleBlock = dfBillboard.Summary.CastleBlock;
             }

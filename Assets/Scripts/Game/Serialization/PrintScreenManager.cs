@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -80,7 +80,7 @@ namespace DaggerfallWorkshop.Game.Serialization
 
         IEnumerator TakeScreenshot()
         {
-            string name = DateTime.Now.ToString("yyyy_MM_dd_hh_mm_ss");
+            string name = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
             int inc = 1;
 
             if (File.Exists(Path.Combine(UnityScreenshotsPath, name + fileExtension)))

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -37,8 +37,8 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
         static Func<Color32> getTreeColorCallback = () => Color.Lerp(Color.white, Color.grey, Random.value);
         static Action<Terrain> setTreesSettingsCallback = SetTreesSettings;
 
-        static HashSet<Vector2Int> triedBillboards = new HashSet<Vector2Int>();
-        static HashSet<uint> triedModels = new HashSet<uint>();
+        static readonly HashSet<Vector2Int> triedBillboards = new HashSet<Vector2Int>();
+        static readonly HashSet<(uint, ClimateBases, DaggerfallDateTime.Seasons)> triedModels = new HashSet<(uint, ClimateBases, DaggerfallDateTime.Seasons)>();
 
         #endregion
 
@@ -96,7 +96,7 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
         /// <param name="matrix">Matrix with position and rotation of GameObject.</param>
         /// <param name="isAutomapRun">True if current model is being created for an Automap?</param>
         /// <returns>Returns the imported model or null if not found.</returns>
-        public static GameObject ImportCustomGameobject (uint modelID, Transform parent, Matrix4x4 matrix, bool isAutomapRun = false)
+        public static GameObject ImportCustomGameobject(uint modelID, Transform parent, Matrix4x4 matrix, bool isAutomapRun = false)
         {
             GameObject modelGO;
             if (!TryImportGameObject(modelID, true, out modelGO))
@@ -119,7 +119,7 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
             return modelGO;
         }
 
-        public static string GetFlatReplacementName (int archive, int record)
+        public static string GetFlatReplacementName(int archive, int record)
         {
             return string.Format("DaggerfallBillboard [TEXTURE.{0:000}, Index={1}] [Replacement]", archive, record);
         }
@@ -133,7 +133,7 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
         /// <param name="parent">Parent to assign to GameObject.</param>
         /// <param name="inDungeon">Fix position for dungeon models.</param>
         /// <returns>Returns the imported model or null if not found.</returns>
-        public static GameObject ImportCustomFlatGameobject (int archive, int record, Vector3 position, Transform parent, bool inDungeon = false)
+        public static GameObject ImportCustomFlatGameobject(int archive, int record, Vector3 position, Transform parent, bool inDungeon = false)
         {
             GameObject go;
             if (!TryImportGameObject(archive, record, true, out go))
@@ -168,7 +168,7 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
         /// <summary>
         /// Ensures that the requested imported model is assigned to the given transform and is positioned correctly.
         /// If archive and record mismatch, the requested prefab is imported while currently loaded gameobject is destroyed.
-        /// This has a similar purpose to <see cref="DaggerfallBillboard.SetMaterial(int, int, int)"/>.
+        /// This has a similar purpose to <see cref="Billboard.SetMaterial(int, int, int)"/>.
         /// </summary>
         /// <param name="archive">Texture archive for original billboard.</param>
         /// <param name="record">Texture record for original billboard.</param>
@@ -271,12 +271,13 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
             {
                 if (ModManager.Instance != null)
                 {
-                    if (!triedModels.Contains(modelID))
+                    var key = MakeModelKey(modelID);
+                    if (!triedModels.Contains(key))
                     {
-                        if (ModManager.Instance.TryGetAsset(GetName(modelID), clone, out go))
+                        if (ModManager.Instance.TryGetAsset(GetName(key), clone, out go))
                             return true;
                         else
-                            triedModels.Add(modelID);
+                            triedModels.Add(key);
                     }
                 }
             }
@@ -309,22 +310,32 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
             return false;
         }
 
+        /// <summary>
+        /// Makes a key for climate/season variant of given model id.
+        /// </summary>
+        /// <param name="modelID">Id of target model.</param>
+        /// <returns>Unique key for model variant.</returns>
+        private static (uint modelID, ClimateBases climateBase, DaggerfallDateTime.Seasons season) MakeModelKey(uint modelID)
+        {
+            if (!GameManager.HasInstance)
+                return (modelID, (ClimateBases)(-1), (DaggerfallDateTime.Seasons)(-1));
+
+            return (modelID, ClimateSwaps.FromAPIClimateBase(GameManager.Instance.PlayerGPS.ClimateSettings.ClimateType), DaggerfallUnity.Instance.WorldTime.Now.SeasonValue);
+        }
+
         ///<summary>
         /// Get all accepted names for a model ordered by priority.
         ///</summary>
-        private static string[] GetName(uint modelID)
+        private static string[] GetName((uint modelID, ClimateBases climateBase, DaggerfallDateTime.Seasons season) key)
         {
-            if (!GameManager.HasInstance)
-                return new string[] {modelID.ToString()};
+            (uint modelID, ClimateBases climateBase, DaggerfallDateTime.Seasons season) = key;
 
-            ClimateBases climateBase = ClimateSwaps.FromAPIClimateBase(GameManager.Instance.PlayerGPS.ClimateSettings.ClimateType);
-            string climateName = climateBase == ClimateBases.Desert ?
-                string.Format("{0}_{1}", modelID, climateBase):
-                string.Format("{0}_{1}{2}", modelID, climateBase, DaggerfallUnity.Instance.WorldTime.Now.SeasonValue);
+            if ((int)climateBase == -1)
+                return new string[] { modelID.ToString() };
 
             return new string[]
             {
-                climateName,
+                climateBase == ClimateBases.Desert ? $"{modelID}_{climateBase}" : $"{modelID}_{climateBase}{season}",
                 modelID.ToString()
             };
         }
@@ -342,8 +353,8 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
         /// </summary>
         private static void AlignToBase(Transform transform, Vector3 position, int archive, int record, bool inDungeon)
         {
-            // Fix origin position for dungeon flats
-            if (inDungeon)
+            // Fix origin position for dungeon flats - ignore treasure flats or they get aligned twice
+            if (inDungeon && archive != TextureReader.FixedTreasureFlatsArchive)
             {
                 int height = ImageReader.GetImageData(TextureFile.IndexToFileName(archive), record, createTexture: false).height;
                 position.y -= height / 2 * MeshReader.GlobalScale;
@@ -448,7 +459,7 @@ namespace DaggerfallWorkshop.Utility.AssetInjection
         {
             if (value == null)
                 throw new ArgumentNullException("callback", "This callback must not be set to null.");
-            
+
             callback = value;
         }
 

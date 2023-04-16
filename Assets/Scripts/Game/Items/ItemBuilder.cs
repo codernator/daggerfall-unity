@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -360,6 +360,7 @@ namespace DaggerfallWorkshop.Game.Items
             {   // Handle arrows
                 newItem.stackCount = UnityEngine.Random.Range(1, 20 + 1);
                 newItem.currentCondition = 0; // not sure if this is necessary, but classic does it
+                newItem.nativeMaterialValue = 0;
             }
             else
             {
@@ -389,16 +390,17 @@ namespace DaggerfallWorkshop.Game.Items
  
             // Random weapon material
             WeaponMaterialTypes material = FormulaHelper.RandomMaterial(playerLevel);
-            ApplyWeaponMaterial(newItem, material);
 
-            // Handle arrows
             if (groupIndex == 18)
-            {
+            {   // Handle arrows
                 newItem.stackCount = UnityEngine.Random.Range(1, 20 + 1);
                 newItem.currentCondition = 0; // not sure if this is necessary, but classic does it
                 newItem.nativeMaterialValue = 0; // Arrows don't have a material
             }
-
+            else
+            {
+                ApplyWeaponMaterial(newItem, material);
+            }
             return newItem;
         }
 

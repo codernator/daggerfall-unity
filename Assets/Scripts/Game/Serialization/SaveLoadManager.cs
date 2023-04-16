@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -615,14 +615,17 @@ namespace DaggerfallWorkshop.Game.Serialization
             return (pretty) ? fsJsonPrinter.PrettyJson(data) : fsJsonPrinter.CompressedJson(data);
         }
 
-        public static object Deserialize(Type type, string serializedState)
+        public static object Deserialize(Type type, string serializedState, bool assertSuccess = false)
         {
             // Step 1: Parse the JSON data
             fsData data = fsJsonParser.Parse(serializedState);
 
             // Step 2: Deserialize the data
             object deserialized = null;
-            _serializer.TryDeserialize(data, type, ref deserialized).AssertSuccessWithoutWarnings();
+            if (assertSuccess)
+                _serializer.TryDeserialize(data, type, ref deserialized).AssertSuccess();
+            else
+                _serializer.TryDeserialize(data, type, ref deserialized).AssertSuccessWithoutWarnings();
 
             return deserialized;
         }
@@ -1142,15 +1145,23 @@ namespace DaggerfallWorkshop.Game.Serialization
             {
                 foreach (Mod mod in ModManager.Instance.GetAllModsWithSaveData())
                 {
-                    object modData = mod.SaveDataInterface.GetSaveData();
-                    if (modData != null)
+                    try
                     {
-                        string modDataJson = Serialize(modData.GetType(), modData);
-                        WriteSaveFile(Path.Combine(path, GetModDataFilename(mod)), modDataJson);
+                        object modData = mod.SaveDataInterface.GetSaveData();
+                        if (modData != null)
+                        {
+                            string modDataJson = Serialize(modData.GetType(), modData);
+                            WriteSaveFile(Path.Combine(path, GetModDataFilename(mod)), modDataJson);
+                        }
+                        else
+                        {
+                            File.Delete(Path.Combine(path, GetModDataFilename(mod)));
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        File.Delete(Path.Combine(path, GetModDataFilename(mod)));
+                        DaggerfallUI.AddHUDText(string.Format("Failed to save mod data for `{0}`. Check log for errors.", mod.ModInfo.ModTitle), 3);
+                        DaggerfallUnity.LogMessage(string.Format("Failed to save mod data for `{0}`. Exception: {1}", mod.ModInfo.ModTitle, ex.Message), true);
                     }
                 }
             }
@@ -1366,7 +1377,7 @@ namespace DaggerfallWorkshop.Game.Serialization
             // Restore quest machine state
             if (!string.IsNullOrEmpty(questDataJson))
             {
-                QuestMachine.QuestMachineData_v1 questData = Deserialize(typeof(QuestMachine.QuestMachineData_v1), questDataJson) as QuestMachine.QuestMachineData_v1;
+                QuestMachine.QuestMachineData_v1 questData = Deserialize(typeof(QuestMachine.QuestMachineData_v1), questDataJson, assertSuccess:true) as QuestMachine.QuestMachineData_v1;
                 QuestMachine.Instance.RestoreSaveData(questData);
             }
 
@@ -1388,11 +1399,21 @@ namespace DaggerfallWorkshop.Game.Serialization
                 playerEntity.Notebook.RestoreNotebookData(notebookData);
             }
 
-            // Restore WorldData variants data
-            if (!string.IsNullOrEmpty(worldVariantsDataJson))
+            // Try to restore WorldData variants data
+            // If this fails for some reason then whole game will fail loading
+            // Handle exception, display an informational message, and try to keep loading
+            try
             {
-                WorldDataVariants.WorldVariationData_v1 worldVariantsData = Deserialize(typeof(WorldDataVariants.WorldVariationData_v1), worldVariantsDataJson) as WorldDataVariants.WorldVariationData_v1;
-                WorldDataVariants.RestoreWorldVariationData(worldVariantsData);
+                if (!string.IsNullOrEmpty(worldVariantsDataJson))
+                {
+                    WorldDataVariants.WorldVariationData_v1 worldVariantsData = Deserialize(typeof(WorldDataVariants.WorldVariationData_v1), worldVariantsDataJson) as WorldDataVariants.WorldVariationData_v1;
+                    WorldDataVariants.RestoreWorldVariationData(worldVariantsData);
+                }
+            }
+            catch (Exception ex)
+            {
+                DaggerfallUI.AddHUDText("Failed to load `WorldVariationData`. Load will try to continue without world variants.", 3);
+                DaggerfallUnity.LogMessage(string.Format("Failed to load world variants. `WorldVariationData.txt` may be corrupt or variants failed to restore. Exception: {0}", ex.Message), true);
             }
 
             // Restore player position to world
@@ -1446,13 +1467,21 @@ namespace DaggerfallWorkshop.Game.Serialization
                 // Restore mod data
                 foreach (Mod mod in ModManager.Instance.GetAllModsWithSaveData())
                 {
-                    string modDataPath = Path.Combine(path, GetModDataFilename(mod));
-                    object modData;
-                    if (File.Exists(modDataPath))
-                        modData = Deserialize(mod.SaveDataInterface.SaveDataType, ReadSaveFile(modDataPath));
-                    else
-                        modData = mod.SaveDataInterface.NewSaveData();
-                    mod.SaveDataInterface.RestoreSaveData(modData);
+                    try
+                    {
+                        string modDataPath = Path.Combine(path, GetModDataFilename(mod));
+                        object modData;
+                        if (File.Exists(modDataPath))
+                            modData = Deserialize(mod.SaveDataInterface.SaveDataType, ReadSaveFile(modDataPath));
+                        else
+                            modData = mod.SaveDataInterface.NewSaveData();
+                        mod.SaveDataInterface.RestoreSaveData(modData);
+                    }
+                    catch (Exception ex)
+                    {
+                        DaggerfallUI.AddHUDText(string.Format("Failed to load mod data for `{0}`. Check log for errors.", mod.ModInfo.ModTitle), 3);
+                        DaggerfallUnity.LogMessage(string.Format("Failed to load mod data for `{0}`. Exception: {1}", mod.ModInfo.ModTitle, ex.Message), true);
+                    }
                 }
             }
 

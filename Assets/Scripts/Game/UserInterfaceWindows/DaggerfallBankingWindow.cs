@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -17,6 +17,7 @@ using DaggerfallWorkshop.Utility;
 using System.Collections.Generic;
 using DaggerfallWorkshop.Game.Items;
 using DaggerfallConnect.Arena2;
+using DaggerfallWorkshop.Game.Formulas;
 
 namespace DaggerfallWorkshop.Game.UserInterface
 {
@@ -507,7 +508,7 @@ namespace DaggerfallWorkshop.Game.UserInterface
             }
             public override string MaxLoan()
             {
-                return DaggerfallBankManager.CalculateMaxLoan().ToString();
+                return FormulaHelper.CalculateMaxBankLoan().ToString();
             }
 
         }
@@ -533,7 +534,7 @@ namespace DaggerfallWorkshop.Game.UserInterface
                 if (DaggerfallBankManager.GetAccountTotal(regionIndex) > 0 || DaggerfallBankManager.HasLoan(regionIndex))
                 {
                     TextFile.Formatting formatting = DaggerfallBankManager.HasDefaulted(regionIndex) ? TextFile.Formatting.TextHighlight : TextFile.Formatting.Text;
-                    messages.AddRange(GetLoansLine(ShortenName(MapsFile.RegionNames[regionIndex], 12), DaggerfallBankManager.GetAccountTotal(regionIndex).ToString(), DaggerfallBankManager.GetLoanedTotal(regionIndex).ToString(), DaggerfallBankManager.GetLoanDueDateString(regionIndex), formatting));
+                    messages.AddRange(GetLoansLine(ShortenName(TextManager.Instance.GetLocalizedRegionName(regionIndex), 12), DaggerfallBankManager.GetAccountTotal(regionIndex).ToString(), DaggerfallBankManager.GetLoanedTotal(regionIndex).ToString(), DaggerfallBankManager.GetLoanDueDateString(regionIndex), formatting));
                     found = true;
                 }
             }

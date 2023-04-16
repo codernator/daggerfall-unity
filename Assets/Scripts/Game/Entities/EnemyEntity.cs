@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -184,7 +184,8 @@ namespace DaggerfallWorkshop.Game.Entity
             // This can happen when exiting city area, after fast travel, or via console
             if (entityType == EntityTypes.EnemyClass &&
                 careerIndex == (int)MobileTypes.Knight_CityWatch - 128 &&
-                GameManager.Instance.PlayerEntity.CrimeCommitted == PlayerEntity.Crimes.None)
+                GameManager.Instance.PlayerEntity.CrimeCommitted == PlayerEntity.Crimes.None &&
+                !GameManager.Instance.PlayerEffectManager.IsTransformedLycanthrope())
             {
                 GameObject.Destroy(sender.gameObject);
             }
@@ -246,7 +247,33 @@ namespace DaggerfallWorkshop.Game.Entity
         /// </summary>
         public void SetEnemyCareer(MobileEnemy mobileEnemy, EntityTypes entityType)
         {
-            if (entityType == EntityTypes.EnemyMonster)
+            // Try custom career first
+            career = GetCustomCareerTemplate(mobileEnemy.ID);
+
+            if (career != null)
+            {
+                // Custom enemy
+                careerIndex = mobileEnemy.ID;
+                stats.SetPermanentFromCareer(career);
+
+                if (entityType == EntityTypes.EnemyMonster)
+                {
+                    // Default like a monster
+                    level = mobileEnemy.Level;
+                    maxHealth = Random.Range(mobileEnemy.MinHealth, mobileEnemy.MaxHealth + 1);
+                    for (int i = 0; i < ArmorValues.Length; i++)
+                    {
+                        ArmorValues[i] = (sbyte)(mobileEnemy.ArmorValue * 5);
+                    }
+                }
+                else
+                {
+                    // Default like a class enemy
+                    level = GameManager.Instance.PlayerEntity.Level;
+                    maxHealth = FormulaHelper.RollEnemyClassMaxHealth(level, career.HitPointsPerLevel);
+                }
+            }
+            else if (entityType == EntityTypes.EnemyMonster)
             {
                 careerIndex = mobileEnemy.ID;
                 career = GetMonsterCareerTemplate((MonsterCareers)careerIndex);
@@ -270,7 +297,7 @@ namespace DaggerfallWorkshop.Game.Entity
                 // Enemy class is levelled to player and uses similar health rules
                 // City guards are 3 to 6 levels above the player
                 level = GameManager.Instance.PlayerEntity.Level;
-                if (careerIndex == (int)MobileTypes.Knight_CityWatch)
+                if (careerIndex == (int)MobileTypes.Knight_CityWatch - 128)
                     level += UnityEngine.Random.Range(3, 7);
 
                 maxHealth = FormulaHelper.RollEnemyClassMaxHealth(level, career.HitPointsPerLevel);

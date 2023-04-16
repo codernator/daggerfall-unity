@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -94,8 +94,8 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 
         #region Properties
 
-        public DFPosition EndPos { get { return endPos; } internal set { endPos = value;} }
-        public DaggerfallTravelMapWindow TravelWindow { get { return travelWindow; } internal set { travelWindow = value; } }
+        public DFPosition EndPos { get { return endPos; } protected internal set { endPos = value;} }
+        public DaggerfallTravelMapWindow TravelWindow { get { return travelWindow; } protected internal set { travelWindow = value; } }
         public bool SpeedCautious { get { return speedCautious;} set {speedCautious = value; } }
         public bool TravelShip { get { return travelShip;} set { travelShip = value;} }
         public bool SleepModeInn { get { return sleepModeInn; } set { sleepModeInn = value; } }

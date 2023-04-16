@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -104,9 +104,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                 return;
             }
 
-            // Disable random name button only for Argonians because their race id
-            // would give them Imperial names from namegen
-            randomNameButton.Enabled = raceTemplate.ID != (int) Races.Argonian;
+            randomNameButton.Enabled = true;
 
             // Randomise DFRandom seed from System.Random
             // A bit of a hack but better than starting with a seed of 0 every time

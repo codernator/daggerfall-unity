@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -42,6 +42,7 @@ namespace DaggerfallWorkshop.Game.Entity
         public const string lycanthropySpellTag = "lycanthrope";
 
         bool godMode = false;
+        bool noClipMode = false;
         bool noTargetMode = false;
         bool preventEnemySpawns = false;
         bool preventNormalizingReputations = false;
@@ -139,6 +140,7 @@ namespace DaggerfallWorkshop.Game.Entity
         #region Properties
 
         public bool GodMode { get { return godMode; } set { godMode = value; } }
+        public bool NoClipMode { get { return noClipMode; } set { noClipMode = value; } }
         public bool NoTargetMode { get { return noTargetMode; } set { noTargetMode = value; } }
         public bool PreventEnemySpawns { get { return preventEnemySpawns; } set { preventEnemySpawns = value; } }
         public bool PreventNormalizingReputations { get { return preventNormalizingReputations; } set { preventNormalizingReputations = value; } }
@@ -194,6 +196,7 @@ namespace DaggerfallWorkshop.Game.Entity
         public bool EnemyAlertActive { get { return enemyAlertActive; } }
         public int DaedraSummonDay { get; set; }
         public int DaedraSummonIndex { get; set; }
+        public PlayerPositionData_v1 AnchorPosition { get; set; }
 
         #endregion
 
@@ -1353,6 +1356,9 @@ namespace DaggerfallWorkshop.Game.Entity
         {
             const int youAreNowAMasterOfTextID = 4020;
 
+            if (GameManager.Instance.PlayerDeath.DeathInProgress)
+                return;
+
             DaggerfallDateTime now = DaggerfallUnity.Instance.WorldTime.Now;
             if ((now.ToClassicDaggerfallTime() - timeOfLastSkillIncreaseCheck) <= 360)
                 return;
@@ -2340,6 +2346,22 @@ namespace DaggerfallWorkshop.Game.Entity
             bool suppressCrime = racialOverride != null && racialOverride.SuppressCrime;
 
             crimeCommitted = (!suppressCrime) ? crime : Crimes.None;
+
+            RaiseOnCrimeUpdateEvent(crimeCommitted);
+        }
+
+        // Allows modders to easily detect if a crime has been committed
+        // This will raise when the player's crime is set to None!
+        // Make sure to account for that when necessary.
+        public delegate void OnCrimeUpdateHandler(Crimes crime);
+        public event OnCrimeUpdateHandler OnCrimeUpdate;
+        protected void RaiseOnCrimeUpdateEvent(Crimes crime)
+        {
+            if (SaveLoadManager.Instance.LoadInProgress)
+                return;
+
+            if (OnCrimeUpdate != null)
+                OnCrimeUpdate(crime);
         }
 
         #endregion

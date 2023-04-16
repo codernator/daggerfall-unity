@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -322,6 +322,16 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                 }
                 return;
             }
+
+            // Handle custom service
+            Services.CustomGuildService customService;
+            if (Services.GetCustomGuildService((int)service, out customService))
+            {
+                CloseWindow();
+                customService(this);
+                return;
+            }
+
             // Handle known service
             DaggerfallTradeWindow tradeWindow;
             switch (service)
@@ -433,11 +443,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 
                 default:
                     CloseWindow();
-                    Services.CustomGuildService customService;
-                    if (Services.GetCustomGuildService((int)service, out customService))
-                        customService(this);
-                    else
-                        DaggerfallUI.MessageBox("Guild service not yet implemented.");
+                    DaggerfallUI.MessageBox("Guild service not yet implemented.");
                     break;
             }
         }

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -62,10 +62,10 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         Checkbox vsync;
         Checkbox swapHealthAndFatigue;
         Checkbox invertMouseVertical;
-        Checkbox mouseSmoothing;
+        HorizontalSlider mouseSmoothing;
         Checkbox leftHandWeapons;
         Checkbox playerNudity;
-        Checkbox clickToAttack;
+        HorizontalSlider weaponSwingMode;
         Checkbox sdfFontRendering;
         Checkbox enableController;
         Checkbox retro320x200WorldRendering;
@@ -135,6 +135,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         protected override void Setup()
         {
             AllowCancel = false;
+            allowFreeScaling = false;
             LoadResources();
 
             // Add exit button
@@ -254,7 +255,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         void CreateBackdrop()
         {
             // Add a block into the scene
-            GameObjectHelper.CreateRMBBlockGameObject("CUSTAA06.RMB", 0, 0);
+            GameObjectHelper.CreateRMBBlockGameObject("CUSTAA06.RMB", 0, 0, 0, 0);
             backdropCreated = true;
 
             // Clear background texture
@@ -403,6 +404,58 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             return checkbox;
         }
 
+        HorizontalSlider AddSlider(float x, string key, string toolTipKey, int selected, params string[] choices)
+        {
+            TextLabel label = DaggerfallUI.AddTextLabel(
+                DaggerfallUI.DefaultFont,
+                new Vector2(x, optionPos), 
+                GetText(key),
+                optionsPanel
+            );
+            label.TextColor = selectedTextColor;
+            label.TextScale = 1.0f;
+            label.ShadowPosition = Vector2.zero;
+
+            HorizontalSlider slider = DaggerfallUI.AddSlider(
+                new Vector2(x, optionPos + 8f),
+                (s) => s.SetIndicator(choices, selected),
+                1.0f,
+                optionsPanel
+            );
+            slider.ToolTip = defaultToolTip;
+            slider.ToolTipText = GetText(toolTipKey);
+
+            optionPos += optionSpacing;
+
+            return slider;
+        }
+
+        HorizontalSlider AddSlider(float x, string key, string toolTipKey, int selected, float minValue, float maxValue)
+        {
+            TextLabel label = DaggerfallUI.AddTextLabel(
+                DaggerfallUI.DefaultFont,
+                new Vector2(x, optionPos),
+                GetText(key),
+                optionsPanel
+            );
+            label.TextColor = selectedTextColor;
+            label.TextScale = 1.0f;
+            label.ShadowPosition = Vector2.zero;
+
+            HorizontalSlider slider = DaggerfallUI.AddSlider(
+                new Vector2(x, optionPos + 8f),
+                (s) => s.SetIndicator(minValue, maxValue, selected * 0.1f),
+                1.0f,
+                optionsPanel
+            );
+            slider.ToolTip = defaultToolTip;
+            slider.ToolTipText = GetText(toolTipKey);
+
+            optionPos += optionSpacing;
+
+            return slider;
+        }
+
         bool GetLeftHandWeapons()
         {
             if (DaggerfallUnity.Settings.Handedness == 1)
@@ -472,13 +525,12 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             vsync = AddOption(x, "vsync", DaggerfallUnity.Settings.VSync);
             swapHealthAndFatigue = AddOption(x, "swapHealthAndFatigue", DaggerfallUnity.Settings.SwapHealthAndFatigueColors);
             invertMouseVertical = AddOption(x, "invertMouseVertical", DaggerfallUnity.Settings.InvertMouseVertical);
-            mouseSmoothing = AddOption(x, "mouseSmoothing", DaggerfallUnity.Settings.MouseLookSmoothing);
+            mouseSmoothing = AddSlider(x, "mouseSmoothing", "mouseSmoothingInfo", SettingsManager.GetMouseLookSmoothingStrength(DaggerfallUnity.Settings.MouseLookSmoothingFactor), SettingsManager.GetMouseLookSmoothingStrengths());
 
             x = 165;
             optionPos = 60;
             leftHandWeapons = AddOption(x, "leftHandWeapons", GetLeftHandWeapons());
             playerNudity = AddOption(x, "playerNudity", DaggerfallUnity.Settings.PlayerNudity);
-            clickToAttack = AddOption(x, "clickToAttack", DaggerfallUnity.Settings.ClickToAttack);
 
             // Setup mods checkboxes
             // TODO: Might rework this, but could still be useful for certain core mods later
@@ -488,9 +540,11 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 
             enableController = AddOption(x, "enableController", DaggerfallUnity.Settings.EnableController);
             enableController.OnToggleState += EnableController_OnToggleState;
+            
+            weaponSwingMode = AddSlider(x, "weaponSwingMode", "weaponSwingModeInfo", DaggerfallUnity.Settings.WeaponSwingMode, "Vanilla", "Click", "Hold");
 
             // Add mod note
-            TextLabel modNoteLabel = DaggerfallUI.AddTextLabel(DaggerfallUI.DefaultFont, new Vector2(0, 125), GetText("modNote"), optionsPanel);
+            TextLabel modNoteLabel = DaggerfallUI.AddTextLabel(DaggerfallUI.DefaultFont, new Vector2(0, 130), GetText("modNote"), optionsPanel);
             modNoteLabel.HorizontalAlignment = HorizontalAlignment.Center;
             modNoteLabel.ShadowPosition = Vector2.zero;
 
@@ -520,6 +574,12 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             restartButton.OnMouseClick += RestartButton_OnMouseClick;
             restartButton.Hotkey = DaggerfallShortcut.GetBinding(DaggerfallShortcut.Buttons.GameSetupRestart);
             optionsPanel.Components.Add(restartButton);
+
+            // Disable restart button when running from distribution
+            // Prevents end user from accidentally stepping back to path selection for game files
+            // Distributions are expected to bundle game files in StreamingAssets/GameFiles with an empty MyDaggerfallPath in settings-distsuffix.ini
+            if (!string.IsNullOrEmpty(DaggerfallUnity.Settings.DistributionSuffix))
+                restartButton.Enabled = false;
 
             if (DaggerfallUnity.Settings.LypyL_ModSystem)
             {
@@ -804,10 +864,10 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             DaggerfallUnity.Settings.VSync = vsync.IsChecked;
             DaggerfallUnity.Settings.SwapHealthAndFatigueColors = swapHealthAndFatigue.IsChecked;
             DaggerfallUnity.Settings.InvertMouseVertical = invertMouseVertical.IsChecked;
-            DaggerfallUnity.Settings.MouseLookSmoothing = mouseSmoothing.IsChecked;
+            DaggerfallUnity.Settings.MouseLookSmoothingFactor = SettingsManager.GetMouseLookSmoothingFactor(mouseSmoothing.ScrollIndex);
             DaggerfallUnity.Settings.Handedness = GetHandedness(leftHandWeapons.IsChecked);
             DaggerfallUnity.Settings.PlayerNudity = playerNudity.IsChecked;
-            DaggerfallUnity.Settings.ClickToAttack = clickToAttack.IsChecked;
+            DaggerfallUnity.Settings.WeaponSwingMode = weaponSwingMode.ScrollIndex;
             DaggerfallUnity.Settings.EnableController = enableController.IsChecked;
             DaggerfallUnity.Settings.SaveSettings();
 

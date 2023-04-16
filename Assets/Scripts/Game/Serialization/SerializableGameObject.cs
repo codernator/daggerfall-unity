@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -215,6 +215,7 @@ namespace DaggerfallWorkshop.Game.Serialization
         public VampireClans previousVampireClan;
         public int daedraSummonDay;
         public int daedraSummonIndex;
+        public PlayerPositionData_v1 anchorPosition;
     }
 
     [fsObject("v1")]
@@ -234,6 +235,7 @@ namespace DaggerfallWorkshop.Game.Serialization
         public bool insideOpenShop;
         public bool insideTavern;
         public bool insideResidence;
+        public bool playerTeleportedIntoDungeon;
         public string terrainSamplerName;
         public int terrainSamplerVersion;
         public QuestSmallerDungeonsState smallerDungeonsState;
@@ -405,6 +407,7 @@ namespace DaggerfallWorkshop.Game.Serialization
         public string lootTableKey;
         public string entityName;
         public int stockedDate;
+        public ulong corpseQuestUID;
         public bool playerOwned;
         public bool customDrop;
         public bool isEnemyClass;

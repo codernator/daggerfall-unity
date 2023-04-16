@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -28,7 +28,6 @@ namespace DaggerfallWorkshop.Game.Questing
     /// It's possible to have the same quest multiple times (e.g. same fetch quest from two different mage guildhalls).
     /// Running quests can perform actions in the world (e.g. spawn enemies and play sounds).
     /// Or they can provide data to external systems like the NPC dialog interface (e.g. 'tell me about' and 'rumors').
-    /// Quest support is considered to be in very early prototype stages and may change at any time.
     /// </summary>
     public class QuestMachine : MonoBehaviour
     {
@@ -702,6 +701,13 @@ namespace DaggerfallWorkshop.Game.Questing
             quests.Add(quest.UID, quest);            
 
             RaiseOnQuestStartedEvent(quest);
+
+            // Assign QuestResourceBehaviour to questor NPC - this will be last NPC clicked
+            // This will ensure quests actions like "hide npc" will operate on questor at quest startup
+            if (LastNPCClicked != null)
+            {
+                LastNPCClicked.AssignQuestResourceBehaviour();
+            }
         }
 
         /// <summary>
@@ -1057,6 +1063,11 @@ namespace DaggerfallWorkshop.Game.Questing
             List<Person> assignedFound = new List<Person>();
             foreach (Quest quest in quests.Values)
             {
+                // Exclude completed quests from active person check
+                // This prevents completed/tombstoned quests from locking out NPC
+                if (quest.QuestComplete)
+                    continue;
+
                 QuestResource[] persons = quest.GetAllResources(typeof(Person));
                 if (persons == null || persons.Length == 0)
                     continue;
@@ -1284,6 +1295,44 @@ namespace DaggerfallWorkshop.Game.Questing
 
             return false;
         }
+
+        /// <summary>
+        /// Checks if NPC is a special individual NPC, then sets it up with components required for quests.
+        /// If the NPC has an Individual faction, and the NPC is currently placed somewhere else in a quest,
+        /// the GameObject will be deactivated
+        /// </summary>
+        /// <param name="go">GameObject representing the static NPC</param>
+        /// <param name="factionID">Faction ID of the NPC</param>
+        /// <returns></returns>
+        public bool SetupIndividualStaticNPC(GameObject go, int factionID)
+        {
+            if (IsIndividualNPC(factionID))
+            {
+                // Check if NPC has been placed elsewhere on a quest
+                if (IsIndividualQuestNPCAtSiteLink(factionID))
+                {
+                    // Disable individual NPC if placed elsewhere
+                    go.SetActive(false);
+                    return false;
+                }
+                else
+                {
+                    // Always add QuestResourceBehaviour to individual NPC
+                    // This is required to bootstrap quest as often questor is not set until after player clicks resource
+                    QuestResourceBehaviour questResourceBehaviour = go.AddComponent<QuestResourceBehaviour>();
+                    Person[] activePersonResources = QuestMachine.Instance.ActiveFactionPersons(factionID);
+                    if (activePersonResources != null && activePersonResources.Length > 0)
+                    {
+                        Person person = activePersonResources[0];
+                        questResourceBehaviour.AssignResource(person);
+                        person.QuestResourceBehaviour = questResourceBehaviour;
+                    }
+                }
+            }
+
+            return true;
+        }
+
 
         /// <summary>
         /// Walks SiteLink > Quest > Place > QuestMarkers > Target to see if an individual NPC has been placed elsewhere.
@@ -1736,10 +1785,20 @@ namespace DaggerfallWorkshop.Game.Questing
             // Restore Quests
             foreach(Quest.QuestSaveData_v1 questData in data.quests)
             {
-                Quest quest = new Quest();
-                quest.RestoreSaveData(questData);
-                quests.Add(quest.UID, quest);
-                quest.ReassignLegacyQuestMarkers();
+                try
+                {
+                    Quest quest = new Quest();
+                    quest.RestoreSaveData(questData);
+                    quests.Add(quest.UID, quest);
+                    quest.ReassignLegacyQuestMarkers();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarningFormat("Failed to load quest data for '{0} [{1}]' with UID {2}. This is expected after removing a mod with custom quest actions. Exception message is '{3}'",
+                        questData.displayName, questData.questName, questData.uid, ex.Message);
+
+                    DaggerfallUI.AddHUDText(string.Format("Failed to load quest '{0} [{1}]'. This is expected if quest mod removed.", questData.displayName, questData.questName), 3);
+                }
             }
 
             // Remove site links with no matching quest

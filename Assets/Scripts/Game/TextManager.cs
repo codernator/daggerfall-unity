@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -18,6 +18,7 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using Wenzil.Console;
 using DaggerfallWorkshop.Game.UserInterface;
+using DaggerfallWorkshop.Game.Entity;
 using UnityEngine.Localization.Tables;
 
 namespace DaggerfallWorkshop.Game
@@ -31,7 +32,9 @@ namespace DaggerfallWorkshop.Game
 
         public static string defaultInternalStringsCollectionName = "Internal_Strings";
         public static string defaultInternalRSCCollectionName = "Internal_RSC";
-        public static string defaultInternalBOKCollectionName = "Internal_BOK";
+        public static string defaultInternalFlatsCollectionName = "Internal_Flats";
+        public static string defaultInternalQuestsCollectionName = "Internal_Quests";
+        public static string defaultInternalLocationsCollectionName = "Internal_Locations";
 
         const string localizedTextLookupError = "<LocaleText-NotFound>";
         const string textFolderName = "Text";
@@ -39,13 +42,17 @@ namespace DaggerfallWorkshop.Game
 
         public string runtimeInternalStrings = defaultInternalStringsCollectionName;
         public string runtimeRSCStrings = defaultInternalRSCCollectionName;
-        public string runtimeBOKStrings = defaultInternalBOKCollectionName;
+        public string runtimeFlatStrings = defaultInternalFlatsCollectionName;
+        public string runtimeQuestsStrings = defaultInternalQuestsCollectionName;
+        public string runtimeLocationsStrings = defaultInternalLocationsCollectionName;
 
         // String table copy editor properties
         public bool tableCopyOverwriteTargetStringTables = false;
         public string tableCopyTargetInternalStrings = null;
         public string tableCopyTargetRSCStrings = null;
         public string tableCopyTargetBOKStrings = null;
+        public string tableCopyTargetFlatStrings = null;
+        public string tableCopyTargetLocationStrings = null;
 
         Dictionary<string, Table> textDatabases = new Dictionary<string, Table>();
         Dictionary<string, string[]> cachedLocalizedTextLists = new Dictionary<string, string[]>();
@@ -137,10 +144,11 @@ namespace DaggerfallWorkshop.Game
         {
             Locale selectedLocale = null;
             var op = LocalizationSettings.SelectedLocaleAsync;
+            op.WaitForCompletion();
             if (op.IsDone)
                 selectedLocale = op.Result;
             else
-                op.Completed += (o) => selectedLocale = o.Result;
+                Debug.LogError("HasLocalizedFont() failed LocalizationSettings.SelectedLocaleAsync operation");
 
             return (selectedLocale != null) ? localizedFonts.ContainsKey(GetLocaleFontKey(selectedLocale, fontName)) : false;
         }
@@ -172,10 +180,11 @@ namespace DaggerfallWorkshop.Game
         {
             Locale selectedLocale = null;
             var op = LocalizationSettings.SelectedLocaleAsync;
+            op.WaitForCompletion();
             if (op.IsDone)
                 selectedLocale = op.Result;
             else
-                op.Completed += (o) => selectedLocale = o.Result;
+                Debug.LogError("GetLocalizedFont() failed LocalizationSettings.SelectedLocaleAsync operation");
 
             return (selectedLocale != null) ? GetLocalizedFont(selectedLocale, fontName) : null;
         }
@@ -242,9 +251,17 @@ namespace DaggerfallWorkshop.Game
                 case TextCollections.Internal:
                     collectionName = runtimeInternalStrings;
                     break;
-
                 case TextCollections.TextRSC:
                     collectionName = runtimeRSCStrings;
+                    break;
+                case TextCollections.TextFlats:
+                    collectionName = runtimeFlatStrings;
+                    break;
+                case TextCollections.TextQuests:
+                    collectionName = runtimeQuestsStrings;
+                    break;
+                case TextCollections.TextLocations:
+                    collectionName = runtimeLocationsStrings;
                     break;
             }
 
@@ -268,6 +285,14 @@ namespace DaggerfallWorkshop.Game
 
                 case TextCollections.TextRSC:
                     collectionName = defaultInternalRSCCollectionName;
+                    break;
+
+                case TextCollections.TextQuests:
+                    collectionName = defaultInternalQuestsCollectionName;
+                    break;
+
+                case TextCollections.TextLocations:
+                    collectionName = defaultInternalLocationsCollectionName;
                     break;
             }
 
@@ -331,15 +356,86 @@ namespace DaggerfallWorkshop.Game
         /// <summary>
         /// Gets display name of an enemy from their ID.
         /// </summary>
-        /// <param name="enemyID">ID of enemy. Valid IDs are 0-42 and 128-146.</param>
+        /// <param name="enemyID">ID of enemy. Valid IDs are 0-42 and 128-146, or values registered in Daggerfallentity.CustomCareerTemplates</param>
         /// <returns>Name of enemy from localization if found, or exception if not found.</returns>
         public string GetLocalizedEnemyName(int enemyID)
         {
-            string[] enemyNames = GetLocalizedTextList("enemyNames", exception:true);
-            if (enemyID < 128)
-                return enemyNames[enemyID];
+            if (Enum.IsDefined(typeof(MobileTypes), (MobileTypes)enemyID))
+            {
+                string[] enemyNames = GetLocalizedTextList("enemyNames", exception: true);
+                if (enemyID < 128)
+                    return enemyNames[enemyID];
+                else
+                    return enemyNames[43 + enemyID - 128];
+            }
+            // Handle custom enemies
             else
-                return enemyNames[43 + enemyID - 128];
+            {
+                string name = DaggerfallUnity.Instance.TextProvider.GetCustomEnemyName(enemyID);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    return name;
+                }
+
+                // Fallback to career name
+                DaggerfallConnect.DFCareer career = DaggerfallEntity.GetCustomCareerTemplate(enemyID);
+                if (career == null)
+                {
+                    Debug.LogError($"Enemy ID '{enemyID}' did not have a registered custom career template");
+                    return "(invalid enemy)";
+                }
+
+                return career.Name;
+            }
+        }
+
+        /// <summary>
+        /// Gets localized version of region name from string tables for display purposes only.
+        /// This is distinct from the canonical name which is used internally as a key and to group discovery data.
+        /// </summary>
+        /// <param name="regionIndex">Index of region.</param>
+        /// <returns>Localized name of region.</returns>
+        public string GetLocalizedRegionName(int regionIndex)
+        {
+            string[] regionNames = GetLocalizedTextList("regionNames");
+            if (regionNames == null || regionNames.Length == 0 ||
+                regionIndex < 0 || regionIndex >= regionNames.Length)
+            {
+                // Fallback to canonical name using MapsFile when localization not provided or index out of range
+                return DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionIndex);
+            }
+            return regionNames[regionIndex];
+        }
+
+        /// <summary>
+        /// Gets localized version of location name from string tables for display purposes only.
+        /// This is distinct from the canonical name which is used internally as a key and to group discovery data.
+        /// Must provide canonical fallback name when calling method as it's expensive to reload location from data to lookup name.
+        /// Caller should already have working location data loaded and canonical name readily available.
+        /// </summary>
+        /// <param name="mapId">MapTableData.MapId key of location.</param>
+        /// <param name="fallback">Fallback canonical name.</param>
+        /// <returns>Localized name of region or fallback if key not found in string tables.</returns>
+        public string GetLocalizedLocationName(int mapId, string fallback)
+        {
+            string name;
+            if (TryGetLocalizedText(TextCollections.TextLocations, mapId.ToString(), out name))
+                return name;
+            else
+                return fallback;
+        }
+
+        /// <summary>
+        /// Tries to gets text value from localization in TextProvider.
+        /// Will use current locale if available in collection.
+        /// </summary>
+        /// <param name="collection">Enum value to lookup collection name in TextManager.</param>
+        /// <param name="key">Key of text in table.</param>
+        /// <param name="localizedString">Result of lookup if found.</param>
+        /// <returns>True if text found, otherwise false.</returns>
+        public bool TryGetLocalizedText(TextCollections collection, string key, out string localizedString)
+        {
+            return TryGetLocalizedText(GetRuntimeCollectionName(collection), key, out localizedString);
         }
 
         #endregion
@@ -554,7 +650,7 @@ namespace DaggerfallWorkshop.Game
         private static class Locale_Set
         {
             public static readonly string name = "locale_set";
-            public static readonly string description = "Sets current locale. Use local_print to list avilable locales.";
+            public static readonly string description = "Sets current locale. Use locale_print to list available locales.";
             public static readonly string usage = "locale_set <index>";
 
             public static string Execute(params string[] args)

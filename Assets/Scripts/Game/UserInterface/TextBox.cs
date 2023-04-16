@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -69,13 +69,17 @@ namespace DaggerfallWorkshop.Game.UserInterface
         public string Text
         {
             get { return text; }
-            set { text = value; SetCursorPosition(text.Length); }
+            set
+            {
+                text = value ?? string.Empty;
+                SetCursorPosition(text.Length);
+            }
         }
 
         public string DefaultText
         {
             get { return defaultText; }
-            set { defaultText = value; }
+            set { defaultText = value ?? string.Empty; }
         }
 
         public string ResultText

@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -19,6 +19,7 @@ using DaggerfallWorkshop.Game.MagicAndEffects;
 using DaggerfallWorkshop.Game.Formulas;
 using DaggerfallConnect.FallExe;
 using DaggerfallWorkshop.Game.Entity;
+using DaggerfallWorkshop.Game.Questing;
 
 namespace DaggerfallWorkshop
 {
@@ -42,6 +43,7 @@ namespace DaggerfallWorkshop
         public bool customDrop = false;         // Custom drop loot is not part of base scene and must be respawned on deserialization
         public bool isEnemyClass = false;
         public int stockedDate = 0;
+        public ulong corpseQuestUID = 0;
 
         ulong loadID = 0;
         ItemCollection items = new ItemCollection();
@@ -71,9 +73,7 @@ namespace DaggerfallWorkshop
             LootChanceMatrix matrix = LootTables.GetMatrix(LootTableKey);
             DaggerfallUnityItem[] newitems = LootTables.GenerateRandomLoot(matrix, GameManager.Instance.PlayerEntity);
 
-            DaggerfallUnityItem[] modifieditems = FormulaHelper.ModifyFoundLootItems(ref newitems);
-
-            collection.Import(modifieditems);
+            collection.Import(newitems);
         }
 
         /// <summary>
@@ -127,6 +127,19 @@ namespace DaggerfallWorkshop
             //Debug.Log("Loot container closed.");
         }
 
+        private void Update()
+        {
+            // If this a quest corpse marker then disable and destroy self when quest complete
+            if (ContainerType == LootContainerTypes.CorpseMarker && corpseQuestUID != 0)
+            {
+                Quest quest = QuestMachine.Instance.GetQuest(corpseQuestUID);
+                if ((quest == null || quest.QuestTombstoned) && gameObject.activeSelf)
+                {
+                    gameObject.SetActive(false);
+                    GameObject.Destroy(gameObject);
+                }
+            }
+        }
 
         public void StockShopShelf(PlayerGPS.DiscoveredBuilding buildingData)
         {

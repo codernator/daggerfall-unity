@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -14,6 +14,7 @@ using DaggerfallWorkshop.Game.Entity;
 using DaggerfallWorkshop.Game.MagicAndEffects;
 using System.Collections.Generic;
 using DaggerfallWorkshop.Utility;
+using System.Linq;
 
 namespace DaggerfallWorkshop.Game
 {
@@ -67,6 +68,7 @@ namespace DaggerfallWorkshop.Game
         float strafeAngle;
         int searchMult;
         int ignoreMaskForShooting;
+        int ignoreMaskForObstacles;
         bool canAct;
         bool falls;
         bool flyerFalls;
@@ -115,10 +117,18 @@ namespace DaggerfallWorkshop.Game
             attack = GetComponent<EnemyAttack>();
 
             // Only need to check for ability to shoot bow once.
-            hasBowAttack = mobile.Enemy.HasRangedAttack1 && mobile.Enemy.ID > 129 && mobile.Enemy.ID != 132;
+            // A mobile has a bow attack if:
+            //   - it has RangedAttack1 and does not cast magic (ex: Mage, Healer, ...), or 
+            //   - it has both RangedAttack1 and RangedAttack2 (ex: Nightblade)
+            // If a mobile only has RangedAttack1 and casts magic, then its ranged attack is only shooting spells, not shooting a bow
+            hasBowAttack =
+                (mobile.Enemy.HasRangedAttack1 && (!mobile.Enemy.CastsMagic || mobile.Enemy.HasRangedAttack2));
 
             // Add things AI should ignore when checking for a clear path to shoot.
             ignoreMaskForShooting = ~(1 << LayerMask.NameToLayer("SpellMissiles") | 1 << LayerMask.NameToLayer("Ignore Raycast"));
+
+            // Also ignore arrows and "Ignore Raycast" layer for obstacles
+            ignoreMaskForObstacles = ~(1 << LayerMask.NameToLayer("SpellMissiles") | 1 << LayerMask.NameToLayer("Ignore Raycast"));
 
             lastGroundedY = transform.position.y;
 
@@ -182,7 +192,7 @@ namespace DaggerfallWorkshop.Game
                 if (entityBehaviour.Entity.Team == MobileTeams.PlayerAlly)
                 {
                     int id = (entityBehaviour.Entity as EnemyEntity).MobileEnemy.ID;
-                    entityBehaviour.Entity.Team = EnemyBasics.Enemies[id].Team;
+                    entityBehaviour.Entity.Team = EnemyBasics.Enemies.First(x => x.ID == id).Team;
                 }
             }
         }
@@ -201,6 +211,16 @@ namespace DaggerfallWorkshop.Game
 
             return transform.position;
         }
+
+        /// <summary>
+        /// Call this when floating origin ticks on Y to ensure enemy doesn't die from large "grounded" difference
+        /// </summary>
+        /// <param name="y">Amount to increment to fallstart</param>
+        public void AdjustLastGrounded(float y)
+        {
+            lastGroundedY += y;
+        }
+
         #endregion
 
         #region Private Methods
@@ -1104,7 +1124,7 @@ namespace DaggerfallWorkshop.Game
             Vector3 p1 = transform.position + (Vector3.up * -originalHeight * 0.1388F);
             Vector3 p2 = p1 + (Vector3.up * Mathf.Min(originalHeight, doorCrouchingHeight) / 2);
 
-            if (Physics.CapsuleCast(p1, p2, controller.radius / 2, direction, out hit, checkDistance))
+            if (Physics.CapsuleCast(p1, p2, controller.radius / 2, direction, out hit, checkDistance, ignoreMaskForObstacles))
             {
                 // Debug.DrawRay(transform.position, direction, Color.red, 2.0f);
                 obstacleDetected = true;
@@ -1365,6 +1385,9 @@ namespace DaggerfallWorkshop.Game
 
                 lastGroundedY = transform.position.y;
             }
+            // For flying enemies, "lastGroundedY" is really "lastAltitudeControlY"
+            else if (flies && !flyerFalls)
+                lastGroundedY = transform.position.y;
         }
 
         /// <summary>

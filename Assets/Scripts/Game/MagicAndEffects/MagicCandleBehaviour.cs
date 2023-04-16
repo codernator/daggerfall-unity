@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -16,6 +16,7 @@ using DaggerfallWorkshop.Game.Serialization;
 
 namespace DaggerfallWorkshop.Game.MagicAndEffects
 {
+    [RequireComponent(typeof(Light))]
     public class MagicCandleBehaviour : MonoBehaviour
     {
         const int candleArchive = 210;
@@ -37,6 +38,9 @@ namespace DaggerfallWorkshop.Game.MagicAndEffects
 
             SaveLoadManager.OnStartLoad += SaveLoadManager_OnStartLoad;
             StartGameBehaviour.OnNewGame += StartGameBehaviour_OnNewGame;
+
+            // Observe spell shadow setting
+            GetComponent<Light>().shadows = (DaggerfallUnity.Settings.EnableSpellShadows) ? LightShadows.Soft : LightShadows.None;
         }
 
         private void Update()

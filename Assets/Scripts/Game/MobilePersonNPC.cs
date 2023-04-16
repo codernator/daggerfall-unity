@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -32,10 +32,10 @@ namespace DaggerfallWorkshop.Game
         int[] maleRedguardFaceRecordIndex = new int[] { 336, 312, 336, 312 };   // matching textures 381, 382, 383, 384 from MobilePersonBillboard class texture definition
         int[] femaleRedguardFaceRecordIndex = new int[] { 144, 144, 120, 96 };  // matching texture 395, 396, 397, 398 from MobilePersonBillboard class texture definition
 
-        int[] maleNordFaceRecordIndex = new int[] { 240, 264, 168, 216 };       // matching texture 387, 388, 389, 390 from MobilePersonBillboard class texture definition
-        int[] femaleNordFaceRecordIndex = new int[] { 72, 0, 48, 72 };          // matching texture 392, 393, 451, 452 from MobilePersonBillboard class texture definition
+        int[] maleNordFaceRecordIndex = new int[] { 240, 264, 168, 192 };       // matching texture 387, 388, 389, 390 from MobilePersonBillboard class texture definition
+        int[] femaleNordFaceRecordIndex = new int[] { 72, 0, 48, 0 };          // matching texture 392, 393, 451, 452 from MobilePersonBillboard class texture definition
 
-        int[] maleBretonFaceRecordIndex = new int[] { 192, 216, 240, 240 };     // matching texture 385, 386, 391, 394 from MobilePersonBillboard class texture definition
+        int[] maleBretonFaceRecordIndex = new int[] { 192, 216, 288, 240 };     // matching texture 385, 386, 391, 394 from MobilePersonBillboard class texture definition
         int[] femaleBretonFaceRecordIndex = new int[] { 72, 72, 24, 72 };       // matching texture 453, 454, 455, 456 from MobilePersonBillboard class texture definition
 
         // display races for npcs (only Breton, Redguard and Nord mobile billboards for displaying exist)
@@ -69,6 +69,7 @@ namespace DaggerfallWorkshop.Game
         public Races Race
         {
             get { return (race); }
+            set { race = value; }
         }
         
         public DisplayRaces DisplayRace
@@ -79,21 +80,25 @@ namespace DaggerfallWorkshop.Game
         public Genders Gender
         {
             get { return (gender); }
+            set { gender = value; }
         }
 
         public string NameNPC
         {
             get { return (nameNPC); }
+            set { nameNPC = value; }
         }
 
         public int PersonOutfitVariant
         {
             get { return (personOutfitVariant); }
+            set { personOutfitVariant = value; }
         }
 
         public int PersonFaceRecordId
         {
             get { return (personFaceRecordId); }
+            set { personFaceRecordId = value; }
         }
 
         public bool PickpocketByPlayerAttempted
@@ -105,12 +110,12 @@ namespace DaggerfallWorkshop.Game
         /// <summary>
         /// True if this npc is a city watch guard.
         /// </summary>
-        public bool IsGuard { get; private set; }
+        public bool IsGuard { get; set; }
 
         /// <summary>
         /// Billboard or custom asset for npc.
         /// </summary>
-        public MobilePersonAsset Asset { get; private set; }
+        public MobilePersonAsset Asset { get; set; }
 
         public MobilePersonMotor Motor
         {
@@ -208,8 +213,7 @@ namespace DaggerfallWorkshop.Game
             this.personFaceRecordId = recordIndices[personOutfitVariant] + personFaceVariant;
 
             // set billboard to correct race, gender and outfit variant
-            Asset = GetComponentInChildren<MobilePersonAsset>();
-            Asset.SetPerson(race, gender, personOutfitVariant, IsGuard);
+            Asset.SetPerson(race, gender, personOutfitVariant, IsGuard, personFaceVariant, personFaceRecordId);
         }
 
         /// <summary>

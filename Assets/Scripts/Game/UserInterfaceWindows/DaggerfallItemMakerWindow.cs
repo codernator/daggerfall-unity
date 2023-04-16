@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using DaggerfallWorkshop.Game.Entity;
 using DaggerfallWorkshop.Game.MagicAndEffects;
 using DaggerfallWorkshop.Game.Formulas;
+using DaggerfallConnect.FallExe;
 
 namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 {
@@ -249,7 +250,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             {
                 // Get enchantments for this effect
                 EnchantmentSettings[] enchantments = effect.GetEnchantmentSettings();
-                if (enchantments == null | enchantments.Length == 0)
+                if (enchantments == null || enchantments.Length == 0)
                     Debug.LogWarningFormat("Effect template '{0}' returned no settings from GetEnchantmentSettings()", effect.Key);
 
                 // Sort enchantments into powers and side-effects
@@ -829,7 +830,8 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             EnchantmentSettings[] filteredEnchantments = GetFilteredEnchantments(effect);
 
             // If this is a singleton effect with no secondary options then add directly to powers/side-effects
-            if (filteredEnchantments.Length == 1)
+            // Exclude EnchantmentTypes.SoulBound enchantment where player must select soul to correctly assign enforced side-effects
+            if (filteredEnchantments.Length == 1 && filteredEnchantments[0].ClassicType != EnchantmentTypes.SoulBound)
             {
                 AddEnchantmentSettings(filteredEnchantments[0]);
                 enchantmentPrimaryPicker.CloseWindow();

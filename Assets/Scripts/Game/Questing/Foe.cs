@@ -1,5 +1,5 @@
-// Project:         Daggerfall Tools For Unity
-// Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
+// Project:         Daggerfall Unity
+// Copyright:       Copyright (C) 2009-2022 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
 // Source Code:     https://github.com/Interkarma/daggerfall-unity
@@ -279,7 +279,7 @@ namespace DaggerfallWorkshop.Game.Questing
 
             // Monster types get a random monster name
             // Always treating monsters as male for now as they don't have any gender in game files
-            if ((int)foeType < 128)
+            if (!DaggerfallEntity.IsClassEnemyId((int)foeType))
             {
                 DFRandom.srand(DateTime.Now.Millisecond + DFRandom.random_range(1, 1000000));
                 displayName = DaggerfallUnity.Instance.NameHelper.MonsterName();
